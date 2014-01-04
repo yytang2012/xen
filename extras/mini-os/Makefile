@@ -72,6 +72,20 @@ TARGET := mini-os
 # Subdirectories common to mini-os
 SUBDIRS := lib xenbus console
 
+# Drivers
+ifeq ($(XEN_TARGET_ARCH),arm32)
+src-y += drivers/gic.c
+endif
+
+# Device tree support
+src-y += lib/fdt/fdt.c
+src-y += lib/fdt/fdt_empty_tree.c
+src-y += lib/fdt/fdt_ro.c
+src-y += lib/fdt/fdt_rw.c
+src-y += lib/fdt/fdt_strerror.c
+src-y += lib/fdt/fdt_sw.c
+src-y += lib/fdt/fdt_wip.c
+
 src-$(CONFIG_BLKFRONT) += blkfront.c
 src-$(CONFIG_TPMFRONT) += tpmfront.c
 src-$(CONFIG_TPM_TIS) += tpm_tis.c
@@ -178,7 +192,11 @@ $(OBJ_DIR)/$(TARGET): links include/list.h $(OBJS) $(APP_O) arch_lib
 	$(LD) -r $(LDFLAGS) $(HEAD_OBJ) $(APP_O) $(OBJS) $(LDARCHLIB) $(LDLIBS) -o $@.o
 	$(OBJCOPY) -w -G $(GLOBAL_PREFIX)* -G _start $@.o $@.o
 	$(LD) $(LDFLAGS) $(LDFLAGS_FINAL) $@.o $(EXTRA_OBJS) -o $@
+ifeq ($(XEN_TARGET_ARCH),arm32)
+	$(OBJCOPY) -O binary $@ $@.img
+else
 	gzip -f -9 -c $@ >$@.gz
+endif
 
 .PHONY: clean arch_clean
 

@@ -86,6 +86,7 @@ char	*strncpy(char * __restrict, const char * __restrict, size_t);
 
 char	*strstr(const char *, const char *);
 
+void *memmove(void * dest,const void *src,size_t count);
 void *memset(void *, int, size_t);
 
 char *strchr(const char *p, int ch);
@@ -96,6 +97,7 @@ char *strrchr(const char *p, int ch);
  * $FreeBSD$
  */
 void	*memcpy(void *to, const void *from, size_t len);
+void *memchr(const void *s, int c, size_t n);
 
 size_t strnlen(const char *, size_t);
 #endif
