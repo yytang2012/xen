@@ -450,6 +450,7 @@ xenbus_msg_reply(int type,
     remove_waiter(w, req_info[id].waitq);
     wake(current);
 
+    rmb();
     rep = req_info[id].reply;
     BUG_ON(rep->req_id != id);
     release_xenbus_id(id);
