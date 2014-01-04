@@ -18,6 +18,10 @@
 #include <hypercall-x86_32.h>
 #elif defined(__x86_64__)
 #include <hypercall-x86_64.h>
+#elif defined(__arm__)
+#include <hypercall-arm32.h>
+#elif defined(__aarch64__)
+#include <hypercall-arm64.h>
 #else
 #error "Unsupported architecture"
 #endif
