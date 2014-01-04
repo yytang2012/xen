@@ -2,6 +2,9 @@
 #define XENBUS_H__
 
 #include <xen/io/xenbus.h>
+#include <xen/io/xs_wire.h>
+
+void arch_init_xenbus(struct xenstore_domain_interface **xenstore_buf, uint32_t *store_evtchn);
 
 typedef unsigned long xenbus_transaction_t;
 #define XBT_NIL ((xenbus_transaction_t)0)
