@@ -1,44 +1,19 @@
-/* -*-  Mode:C; c-basic-offset:4; tab-width:4 -*-
- ****************************************************************************
- * (C) 2003 - Rolf Neugebauer - Intel Research Cambridge
- * (C) 2002-2003 - Keir Fraser - University of Cambridge 
- * (C) 2005 - Grzegorz Milos - Intel Research Cambridge
- * (C) 2006 - Robert Kaiser - FH Wiesbaden
- ****************************************************************************
- *
- *        File: time.c
- *      Author: Rolf Neugebauer and Keir Fraser
- *     Changes: Grzegorz Milos
- *
- * Description: Simple time and timer functions
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to
- * deal in the Software without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- * 
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
- * DEALINGS IN THE SOFTWARE.
- */
-
-
 #include <mini-os/os.h>
-#include <mini-os/traps.h>
-#include <mini-os/types.h>
 #include <mini-os/hypervisor.h>
 #include <mini-os/events.h>
+#include <mini-os/traps.h>
+#include <mini-os/types.h>
 #include <mini-os/time.h>
 #include <mini-os/lib.h>
+
+//#define VTIMER_DEBUG
+#ifdef VTIMER_DEBUG
+#define DEBUG(_f, _a...) \
+    printk("MINI_OS(file=vtimer.c, line=%d) " _f , __LINE__, ## _a)
+#else
+#define DEBUG(_f, _a...)    ((void)0)
+#endif
+
 
 /************************************************************************
  * Time functions
@@ -58,11 +33,6 @@ static uint32_t shadow_ts_version;
 
 static struct shadow_time_info shadow;
 
-
-#ifndef rmb
-#define rmb()  __asm__ __volatile__ ("lock; addl $0,0(%%esp)": : :"memory")
-#endif
-
 #define HANDLE_USEC_OVERFLOW(_tv)          \
     do {                                   \
         while ( (_tv)->tv_usec >= 1000000 ) \
@@ -74,7 +44,7 @@ static struct shadow_time_info shadow;
 
 static inline int time_values_up_to_date(void)
 {
-	struct vcpu_time_info *src = &HYPERVISOR_shared_info->vcpu_info[0].time; 
+	struct vcpu_time_info *src = &HYPERVISOR_shared_info->vcpu_info[0].time;
 
 	return (shadow.version == src->version);
 }
@@ -86,43 +56,20 @@ static inline int time_values_up_to_date(void)
  */
 static inline uint64_t scale_delta(uint64_t delta, uint32_t mul_frac, int shift)
 {
-	uint64_t product;
-#ifdef __i386__
-	uint32_t tmp1, tmp2;
-#endif
-
-	if ( shift < 0 )
-		delta >>= -shift;
-	else
-		delta <<= shift;
-
-#ifdef __i386__
-	__asm__ (
-		"mul  %5       ; "
-		"mov  %4,%%eax ; "
-		"mov  %%edx,%4 ; "
-		"mul  %5       ; "
-		"add  %4,%%eax ; "
-		"xor  %5,%5    ; "
-		"adc  %5,%%edx ; "
-		: "=A" (product), "=r" (tmp1), "=r" (tmp2)
-		: "a" ((uint32_t)delta), "1" ((uint32_t)(delta >> 32)), "2" (mul_frac) );
-#else
-	__asm__ (
-		"mul %%rdx ; shrd $32,%%rdx,%%rax"
-		: "=a" (product) : "0" (delta), "d" ((uint64_t)mul_frac) );
-#endif
-
-	return product;
+	BUG();
+	return 0;
 }
 
 
 static unsigned long get_nsec_offset(void)
 {
+	return 0;
+#if FIXME
 	uint64_t now, delta;
 	rdtscll(now);
 	delta = now - shadow.tsc_timestamp;
 	return scale_delta(delta, shadow.tsc_to_nsec_mul, shadow.tsc_shift);
+#endif
 }
 
 
@@ -187,8 +134,8 @@ int gettimeofday(struct timeval *tv, void *tz)
 {
     uint64_t nsec = monotonic_clock();
     nsec += shadow_ts.tv_nsec;
-    
-    
+
+
     tv->tv_sec = shadow_ts.tv_sec;
     tv->tv_sec += NSEC_TO_SEC(nsec);
     tv->tv_usec = NSEC_TO_USEC(nsec % 1000000000UL);
@@ -214,25 +161,72 @@ void block_domain(s_time_t until)
 /*
  * Just a dummy
  */
-static void timer_handler(evtchn_port_t ev, struct pt_regs *regs, void *ign)
+void timer_handler(evtchn_port_t port, struct pt_regs *regs, void *ign)
 {
+	DEBUG("Timer kick\n");
     get_time_values_from_xen();
-    update_wallclock();
+	update_wallclock();
 }
 
+#define VTIMER_TICK 0x10000000
+void increment_vtimer_compare(uint64_t inc) {
+	uint32_t x, y;
+	uint64_t value;
+	__asm__ __volatile__("mrrc p15, 1, %0, %1, c14\n"
+			"isb":"=r"(x), "=r"(y));
 
+	// CompareValue = Counter + VTIMER_TICK
+	value = (0xFFFFFFFFFFFFFFFFULL & x) | ((0xFFFFFFFFFFFFFFFFULL & y) << 32);
+	DEBUG("Counter: %llx(x=%x and y=%x)\n", value, x, y);
+	value += inc;
+	DEBUG("New CompareValue : %llx\n", value);
+	x = 0xFFFFFFFFULL & value;
+	y = (value >> 32) & 0xFFFFFFFF;
 
-static evtchn_port_t port;
+	__asm__ __volatile__("mcrr p15, 3, %0, %1, c14\n"
+			"isb"::"r"(x), "r"(y));
+
+	__asm__ __volatile__("mov %0, #0x1\n"
+				"mcr p15, 0, %0, c14, c3, 1\n" /* Enable timer and unmask the output signal */
+				"isb":"=r"(x));
+}
+
+static inline void enable_virtual_timer(void) {
+#if FIXME
+	uint32_t x, y;
+	uint64_t value;
+
+	__asm__ __volatile__("ldr %0, =0xffffffff\n"
+			"ldr %1, =0xffffffff\n"
+			"dsb\n"
+			"mcrr p15, 3, %0, %1, c14\n" /* set CompareValue to 0x0000ffff 0000ffff */
+			"isb\n"
+			"mov %0, #0x1\n"
+			"mcr p15, 0, %0, c14, c3, 1\n" /* Enable timer and unmask the output signal */
+			"isb":"=r"(x), "=r"(y));
+#else
+	increment_vtimer_compare(VTIMER_TICK);
+#endif
+}
+
+evtchn_port_t timer_port = -1;
 void arch_init_time(void)
 {
+	// FIXME: VIRQ_TIMER isn't supported under ARM, use ARM Generic Timer instead.
     printk("Initialising timer interface\n");
-    port = bind_virq(VIRQ_TIMER, &timer_handler, NULL);
-    unmask_evtchn(port);
+    timer_port = bind_virq(VIRQ_TIMER, (evtchn_handler_t)timer_handler, 0);
+    if(timer_port == -1)
+		BUG();
+    unmask_evtchn(timer_port);
+
+    enable_virtual_timer();
 }
 
 void arch_fini_time(void)
 {
-    /* Clear any pending timer */
-    HYPERVISOR_set_timer_op(0);
-    unbind_evtchn(port);
+	if(timer_port != -1)
+	{
+		mask_evtchn(timer_port);
+		unbind_evtchn(timer_port);
+	}
 }

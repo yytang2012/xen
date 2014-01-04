@@ -157,7 +157,9 @@ void xprintk(const char *fmt, ...)
 void init_console(void)
 {   
     printk("Initialising console ... ");
+#ifndef __arm__
     xencons_ring_init();    
+#endif
     console_initialised = 1;
     /* This is also required to notify the daemon */
     printk("done.\n");
