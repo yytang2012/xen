@@ -75,6 +75,15 @@ SUBDIRS := lib xenbus console
 ifeq ($(XEN_TARGET_ARCH),arm32)
 # ARM drivers
 src-y += drivers/gic.c
+
+# Device tree support
+src-y += lib/fdt/fdt.c
+src-y += lib/fdt/fdt_empty_tree.c
+src-y += lib/fdt/fdt_ro.c
+src-y += lib/fdt/fdt_rw.c
+src-y += lib/fdt/fdt_strerror.c
+src-y += lib/fdt/fdt_sw.c
+src-y += lib/fdt/fdt_wip.c
 endif
 
 src-$(CONFIG_BLKFRONT) += blkfront.c
@@ -102,6 +111,7 @@ src-y += lib/math.c
 src-y += lib/printf.c
 src-y += lib/stack_chk_fail.c
 src-y += lib/string.c
+src-y += lib/memmove.c
 src-y += lib/sys.c
 src-y += lib/xmalloc.c
 src-$(CONFIG_XENBUS) += lib/xs.c
