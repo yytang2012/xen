@@ -26,6 +26,10 @@ typedef void (*evtchn_handler_t)(evtchn_port_t, struct pt_regs *, void *);
 
 /* prototypes */
 void arch_init_events(void);
+
+/* Called by fini_events. Close any arch-specific ports (e.g. debug ports) */
+void arch_unbind_ports(void);
+
 void arch_fini_events(void);
 
 int do_event(evtchn_port_t port, struct pt_regs *regs);
