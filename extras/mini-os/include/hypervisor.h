@@ -13,15 +13,33 @@
 #define _HYPERVISOR_H_
 
 #include <mini-os/types.h>
+
 #include <xen/xen.h>
+
 #if defined(__i386__)
 #include <hypercall-x86_32.h>
 #elif defined(__x86_64__)
 #include <hypercall-x86_64.h>
+#elif defined(__arm__)
+#include <hypercall-arm32.h>
+#elif defined(__aarch64__)
+#include <hypercall-arm64.h>
 #else
 #error "Unsupported architecture"
 #endif
 #include <mini-os/traps.h>
+
+#ifdef __arm__
+struct start_info {
+    union {
+        struct {
+            xen_pfn_t mfn;
+            uint32_t  evtchn;
+        } domU;
+    } console;
+};
+typedef struct start_info start_info_t;
+#endif
 
 /*
  * a placeholder for the start of day information passed up from the hypervisor
@@ -35,7 +53,6 @@ extern union start_info_union start_info_union;
 #define start_info (start_info_union.start_info)
 
 /* hypervisor.c */
-void force_evtchn_callback(void);
 void do_hypervisor_callback(struct pt_regs *regs);
 void mask_evtchn(uint32_t port);
 void unmask_evtchn(uint32_t port);
