@@ -46,6 +46,10 @@
 #include <xen/features.h>
 #include <xen/version.h>
 
+#ifdef __arm__
+#include <mini-os/gic.h>
+#endif
+
 uint8_t xen_features[XENFEAT_NR_SUBMAPS * 32];
 
 void setup_xen_features(void)
@@ -144,6 +148,10 @@ void start_kernel(void)
 
 #ifdef CONFIG_XENBUS
     create_thread("shutdown", shutdown_thread, NULL);
+#endif
+
+#ifdef __arm__
+    gic_init();
 #endif
 
     /* Call (possibly overridden) app_main() */

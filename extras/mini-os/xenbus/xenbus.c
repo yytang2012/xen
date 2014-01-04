@@ -28,6 +28,7 @@
 #include <xen/io/xs_wire.h>
 #include <mini-os/spinlock.h>
 #include <mini-os/xmalloc.h>
+#include <mini-os/hypervisor.h>
 
 #define min(x,y) ({                       \
         typeof(x) tmpx = (x);                 \

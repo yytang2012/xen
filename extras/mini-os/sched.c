@@ -145,6 +145,9 @@ struct thread* create_thread(char *name, void (*function)(void *), void *data)
     unsigned long flags;
     /* Call architecture specific setup. */
     thread = arch_create_thread(name, function, data);
+    if(!thread)
+    	BUG(); //For now, FIXME should just return NULL
+
     /* Not runable, not exited, not sleeping */
     thread->flags = 0;
     thread->wakeup_time = 0LL;
