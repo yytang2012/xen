@@ -100,15 +100,19 @@ void schedule(void)
         next = NULL;
         MINIOS_TAILQ_FOREACH_SAFE(thread, &thread_list, thread_list, tmp)
         {
+        	DEBUG("Checking thread : %s (runnable:%i)\n", thread->name, is_runnable(thread));
             if (!is_runnable(thread) && thread->wakeup_time != 0LL)
             {
-                if (thread->wakeup_time <= now)
+                if (thread->wakeup_time <= now) {
+                	DEBUG("Wake thread : %s\n", thread->name);
                     wake(thread);
+                }
                 else if (thread->wakeup_time < min_wakeup_time)
                     min_wakeup_time = thread->wakeup_time;
             }
             if(is_runnable(thread)) 
             {
+            	DEBUG("Thread (%s) is runnable, put it next\n", thread->name);
                 next = thread;
                 /* Put this thread on the end of the list */
                 MINIOS_TAILQ_REMOVE(&thread_list, thread, thread_list);
@@ -190,7 +194,7 @@ struct _reent *__getreent(void)
     }
 #endif
 #else
-#error Not Imeplemented yet
+#error Not implemented yet
 #endif
     return _reent;
 }
