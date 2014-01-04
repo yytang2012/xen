@@ -114,6 +114,8 @@ __attribute__((weak)) int app_main(start_info_t *si)
     return 0;
 }
 
+void gic_init(void);
+
 void start_kernel(void)
 {
     /* Set up events. */
@@ -145,8 +147,16 @@ void start_kernel(void)
     create_thread("shutdown", shutdown_thread, NULL);
 #endif
 
+#ifdef __arm__
+    gic_init();
+#endif
+
     /* Call (possibly overridden) app_main() */
+#if defined(__arm__) || defined(__aarch64__)
+    app_main(NULL);
+#else
     app_main(&start_info);
+#endif
 
     /* Everything initialised, start idle thread */
     run_idle_thread();

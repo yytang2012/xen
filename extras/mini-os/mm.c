@@ -52,13 +52,21 @@
 /*********************
  * ALLOCATION BITMAP
  *  One bit per page of memory. Bit set => page is allocated.
+ * Note: the first entry in alloc_bitmap corresponds to the address of alloc_bitmap itself (and is therefore never used).
+ * alloc_bitmap is page aligned.
  */
 
 static unsigned long *alloc_bitmap;
 #define PAGES_PER_MAPWORD (sizeof(unsigned long) * 8)
 
-#define allocated_in_map(_pn) \
-(alloc_bitmap[(_pn)/PAGES_PER_MAPWORD] & (1UL<<((_pn)&(PAGES_PER_MAPWORD-1))))
+/** Convert a physical page number to the number of the page relative to the heap base. */
+#define PAGE_INDEX(pg) ((pg) - (((unsigned long) alloc_bitmap)>>PAGE_SHIFT))
+
+static inline int allocated_in_map(int pn)
+{
+    int i = PAGE_INDEX(pn);
+    return alloc_bitmap[i] & (1UL << (i & (PAGES_PER_MAPWORD - 1)));
+}
 
 /*
  * Hint regarding bitwise arithmetic in map_{alloc,free}:
@@ -72,11 +80,12 @@ static unsigned long *alloc_bitmap;
 static void map_alloc(unsigned long first_page, unsigned long nr_pages)
 {
     unsigned long start_off, end_off, curr_idx, end_idx;
+    int start_index = PAGE_INDEX(first_page);
 
-    curr_idx  = first_page / PAGES_PER_MAPWORD;
-    start_off = first_page & (PAGES_PER_MAPWORD-1);
-    end_idx   = (first_page + nr_pages) / PAGES_PER_MAPWORD;
-    end_off   = (first_page + nr_pages) & (PAGES_PER_MAPWORD-1);
+    curr_idx  = start_index / PAGES_PER_MAPWORD;
+    start_off = start_index & (PAGES_PER_MAPWORD-1);
+    end_idx   = (start_index + nr_pages) / PAGES_PER_MAPWORD;
+    end_off   = (start_index + nr_pages) & (PAGES_PER_MAPWORD-1);
 
     if ( curr_idx == end_idx )
     {
@@ -94,11 +103,12 @@ static void map_alloc(unsigned long first_page, unsigned long nr_pages)
 static void map_free(unsigned long first_page, unsigned long nr_pages)
 {
     unsigned long start_off, end_off, curr_idx, end_idx;
+    int start_index = PAGE_INDEX(first_page);
 
-    curr_idx = first_page / PAGES_PER_MAPWORD;
-    start_off = first_page & (PAGES_PER_MAPWORD-1);
-    end_idx   = (first_page + nr_pages) / PAGES_PER_MAPWORD;
-    end_off   = (first_page + nr_pages) & (PAGES_PER_MAPWORD-1);
+    curr_idx = start_index / PAGES_PER_MAPWORD;
+    start_off = start_index & (PAGES_PER_MAPWORD-1);
+    end_idx   = (start_index + nr_pages) / PAGES_PER_MAPWORD;
+    end_off   = (start_index + nr_pages) & (PAGES_PER_MAPWORD-1);
 
     if ( curr_idx == end_idx )
     {
@@ -213,21 +223,25 @@ static void init_page_allocator(unsigned long min, unsigned long max)
     min = round_pgup  (min);
     max = round_pgdown(max);
 
+
     /* Allocate space for the allocation bitmap. */
-    bitmap_size  = (max+1) >> (PAGE_SHIFT+3);
+    bitmap_size  = (max - min + 1) >> (PAGE_SHIFT+3);
     bitmap_size  = round_pgup(bitmap_size);
     alloc_bitmap = (unsigned long *)to_virt(min);
     min         += bitmap_size;
     range        = max - min;
+
 
     /* All allocated by default. */
     memset(alloc_bitmap, ~0, bitmap_size);
     /* Free up the memory we've been given to play with. */
     map_free(PHYS_PFN(min), range>>PAGE_SHIFT);
 
+
     /* The buddy lists are addressed in high memory. */
     min = (unsigned long) to_virt(min);
     max = (unsigned long) to_virt(max);
+
 
     while ( range != 0 )
     {
@@ -237,7 +251,6 @@ static void init_page_allocator(unsigned long min, unsigned long max)
          */
         for ( i = PAGE_SHIFT; (1UL<<(i+1)) <= range; i++ )
             if ( min & (1UL<<i) ) break;
-
 
         ch = (chunk_head_t *)min;
         min   += (1UL<<i);
@@ -395,13 +408,9 @@ void *sbrk(ptrdiff_t increment)
 }
 #endif
 
-
-
 void init_mm(void)
 {
-
     unsigned long start_pfn, max_pfn;
-
     printk("MM: Init\n");
 
     arch_init_mm(&start_pfn, &max_pfn);

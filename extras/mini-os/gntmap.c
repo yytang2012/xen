@@ -37,6 +37,7 @@
 #include <xen/grant_table.h>
 #include <inttypes.h>
 #include <mini-os/gntmap.h>
+#include <mini-os/hypervisor.h>
 
 //#define GNTMAP_DEBUG
 #ifdef GNTMAP_DEBUG

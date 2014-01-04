@@ -72,6 +72,11 @@ TARGET := mini-os
 # Subdirectories common to mini-os
 SUBDIRS := lib xenbus console
 
+ifeq ($(XEN_TARGET_ARCH),arm32)
+# ARM drivers
+src-y += drivers/gic.c
+endif
+
 src-$(CONFIG_BLKFRONT) += blkfront.c
 src-$(CONFIG_TPMFRONT) += tpmfront.c
 src-$(CONFIG_TPM_TIS) += tpm_tis.c
@@ -92,7 +97,9 @@ src-y += sched.c
 src-$(CONFIG_TEST) += test.c
 
 src-y += lib/ctype.c
+ifneq ($(XEN_TARGET_ARCH),arm32)
 src-y += lib/math.c
+endif
 src-y += lib/printf.c
 src-y += lib/stack_chk_fail.c
 src-y += lib/string.c
@@ -178,7 +185,11 @@ $(OBJ_DIR)/$(TARGET): links include/list.h $(OBJS) $(APP_O) arch_lib
 	$(LD) -r $(LDFLAGS) $(HEAD_OBJ) $(APP_O) $(OBJS) $(LDARCHLIB) $(LDLIBS) -o $@.o
 	$(OBJCOPY) -w -G $(GLOBAL_PREFIX)* -G _start $@.o $@.o
 	$(LD) $(LDFLAGS) $(LDFLAGS_FINAL) $@.o $(EXTRA_OBJS) -o $@
+ifeq ($(XEN_TARGET_ARCH),arm32)
+	$(OBJCOPY) -O binary $@ $@.img
+else
 	gzip -f -9 -c $@ >$@.gz
+endif
 
 .PHONY: clean arch_clean
 

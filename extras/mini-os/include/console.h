@@ -42,6 +42,7 @@
 #include <xen/grant_table.h>
 #include <xenbus.h>
 #include <xen/io/console.h>
+#include <mini-os/hypervisor.h>
 #include <stdarg.h>
 
 struct consfront_dev {
