@@ -82,6 +82,7 @@ src-$(CONFIG_FBFRONT) += fbfront.c
 src-y += gntmap.c
 src-y += gnttab.c
 src-y += hypervisor.c
+src-y += time.c
 src-y += kernel.c
 src-y += lock.c
 src-y += main.c
