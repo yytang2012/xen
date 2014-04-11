@@ -1,5 +1,9 @@
 #define PHYS_START (0x80008000)
 
+#define __HVC(imm16) .long ((0xE1400070 | (((imm16) & 0xFFF0) << 4) | ((imm16) & 0x000F)) & 0xFFFFFFFF)
+#define XEN_IMM 0xEA1
+#define __HYPERVISOR_console_io           18
+
 .section .text
 
 .globl _start
@@ -13,6 +17,10 @@ _start:
         .word   _start		@ absolute load/run zImage address
         .word   _end - _start   @ zImage size
 	@ end of zImage header
+greeting:
+	.string "Mini-OS/arm32 starting...\n"
+greeting_end:
+.align 4
 
 1:
 #if FIXME
@@ -24,6 +32,13 @@ _start:
 
 @ Save dtb pointer passed by the hypervisor
 	mov	r4, r2		@ save dtb pointer
+
+	@ Say hi
+	mov r0, #0		@ write
+	mov r1, #greeting_end - greeting
+	adr r2, greeting
+        mov r12, #__HYPERVISOR_console_io
+        __HVC(XEN_IMM)
 
 @ Build pagetables
 	bl	build_pagetables
