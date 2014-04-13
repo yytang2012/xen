@@ -113,43 +113,56 @@ void gic_init(void);
 
 void start_kernel(void)
 {
+    printk("init_events\n");
     /* Set up events. */
     init_events();
 
+    printk("sti\n");
+    /* Set up events. */
     __sti();
 
+    printk("setup_xen_features\n");
     setup_xen_features();
 
     /* Init memory management. */
+    printk("init_mm\n");
     init_mm();
 
     /* Init time and timers. */
+    printk("init_tim\n");
     init_time();
 
 #if FIXME
     /* Init the console driver. */
+    printk("init_console\n");
     init_console();
 #endif
 
     /* Init grant tables */
+    printk("init_gnttab\n");
     init_gnttab();
 
     /* Init scheduler. */
+    printk("init_sched\n");
     init_sched();
  
     /* Init XenBus */
+    printk("init_xenbus\n");
     init_xenbus();
 
 
 #ifdef CONFIG_XENBUS
+    printk("shutdown\n");
     create_thread("shutdown", shutdown_thread, NULL);
 #endif
 
 
+	printk("gic_init\n");
 	gic_init();
 
 //#define VTIMER_TEST
 #ifdef VTIMER_TEST
+    printk("VTIMER_TEST\n");
     while(1){
 		int x, y, z;
     	z = 0;
@@ -173,13 +186,17 @@ void start_kernel(void)
 
     /* Call (possibly overridden) app_main() */
 #if defined(__arm__) || defined(__aarch64__)
+    printk("arm main\n");
     app_main(NULL);
 #else
     app_main(&start_info);
 #endif
 
     /* Everything initialised, start idle thread */
+    printk("idle\n");
     run_idle_thread();
+
+    printk("end\n");
 }
 
 void stop_kernel(void)

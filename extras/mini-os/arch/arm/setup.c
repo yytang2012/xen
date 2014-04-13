@@ -20,6 +20,8 @@ extern char shared_info_page[PAGE_SIZE];
 
 void start_kernel(void);
 
+extern void dump_regs(void);
+
 /*
  * INITIAL C ENTRY POINT.
  */
@@ -29,7 +31,13 @@ void arch_init(void *dtb_pointer)
 
     memset(&__bss_start, 0, &_end - &__bss_start);
 
-    printk("dtb_pointer : %x\n", dtb_pointer);
+    (void)HYPERVISOR_console_io(CONSOLEIO_write, 3, "A!\n");
+    (void)HYPERVISOR_console_io(CONSOLEIO_write, 3, "B!\n");
+
+    dump_regs();
+    printk("HERE: dtb_pointer : %x\n", dtb_pointer);
+    (void)HYPERVISOR_console_io(CONSOLEIO_write, 3, "C!\n");
+    printk("DONE\n");
 
     /* Map shared_info page */
 	xatp.domid = DOMID_SELF;
@@ -40,6 +48,7 @@ void arch_init(void *dtb_pointer)
 		BUG();
 	HYPERVISOR_shared_info = (struct shared_info *)shared_info_page;
 
+	printk("calling start_kernel\n");
 	start_kernel();
 }
 

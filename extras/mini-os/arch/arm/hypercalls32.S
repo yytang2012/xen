@@ -57,6 +57,7 @@ HYPERVISOR_##hypercall:				\
 #define _hypercall2 HYPERCALL_SIMPLE
 #define _hypercall3 HYPERCALL_SIMPLE
 #define _hypercall4 HYPERCALL_SIMPLE
+/* Note: if we ever need _hypercall5, we can't define it this way, as AAPCS only lets us clobber r0-r3 */
 
 _hypercall1(set_trap_table);
 _hypercall4(mmu_update);
@@ -86,3 +87,81 @@ _hypercall2(nmi_op);
 _hypercall1(sysctl);
 _hypercall1(domctl);
 _hypercall2(hvm_op);
+
+.align 4
+
+.globl dump_regs
+dump_regs:
+	@ Write to console
+	mov	r0, #0		@ write
+	mov	r1, #4 @ buffer_end - buffer
+	ldr	r2, =buffer
+        mov	r12, #__HYPERVISOR_console_io
+        __HVC(XEN_IMM)
+
+	ldr	r2, =buffer2
+	add	r1, r2, #(buffer_end2 - buffer2 - 2)
+	mov	r0, #'+'
+1:
+	strb	r0, [r2], #1
+	cmp	r2, r1
+	bne	1b
+
+	mov	r0, #0		@ write
+	mov	r1, #buffer_end2 - buffer2
+	ldr	r2, =buffer2
+	mov	r3, #'!'
+	strb 	r3,[r2,#1]
+	strb 	r3,[r2,#10]
+        mov	r12, #__HYPERVISOR_console_io
+	dsb
+	dmb
+	isb
+        __HVC(XEN_IMM)
+
+	mov	pc, r14
+
+
+	ldr	r12, =dump
+	stmia	r12, {r0-r15}
+	mov	r4, #0		@ r4 = reg number
+	ldr	r5, =buffer	@ r5 -> buffer
+	mov	r6, r12		@ r6 -> saved registers
+1:
+	ldr	r0, [r6, r4, lsl#2]
+
+	ldr	r5, =buffer	@ r5 -> buffer
+	add	r2, r4, #49
+	strb	r2,[r5, #1]
+
+	dmb
+
+	cmp r4,#3
+	blt skip
+
+	@ Write to console
+	mov	r0, #0		@ write
+	mov	r1, #buffer_end - buffer
+	mov	r2, r5
+        mov	r12, #__HYPERVISOR_console_io
+        __HVC(XEN_IMM)
+skip:
+
+	add	r4, r4, #1
+	cmp	r4, #16
+	blt	1b
+
+	ldmia	r6, {r0-r13, r15}
+
+.pushsection .data
+.align	2
+dump:
+	.fill (16), 4, 0x0
+.align	6
+buffer:
+	.string "012\n456789abcdefB123456789abcdefC123456789abcdefD123456789a" @ 60 bytes
+buffer_end:
+buffer2:
+	.string "..........................\n"
+buffer_end2:
+.popsection
