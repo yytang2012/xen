@@ -1,4 +1,3 @@
-* support abort exception handling ( and others )
 * scheduling!
 * gic request_irq implementation, currently all IRQs all hardcoded in gic irq handler.
 * use device tree instead of the currently hardcoded values

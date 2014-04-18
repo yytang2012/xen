@@ -2,7 +2,7 @@
 #define _ARCH_MM_H_
 
 extern char _text, _etext, _erodata, _edata, _end, __bss_start;
-extern char stack[];
+extern int stack[];
 
 #define PAGE_SHIFT        12
 #define PAGE_SIZE        (1 << PAGE_SHIFT)

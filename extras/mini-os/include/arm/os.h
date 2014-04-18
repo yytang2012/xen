@@ -10,7 +10,7 @@
 void arch_fini(void);
 void timer_handler(evtchn_port_t port, struct pt_regs *regs, void *ign);
 
-#define BUG() while(1){}
+#define BUG() while(1){asm volatile (".word 0xe7f000f0\n");} /* Undefined instruction; will call our fault handler. */
 
 #define smp_processor_id() 0
 
