@@ -4,6 +4,7 @@
 #include <xen/memory.h>
 #include <xen/hvm/params.h>
 #include <arch_mm.h>
+#include <libfdt.h>
 
 /*
  * This structure contains start-of-day info, such as pagetable base pointer,
@@ -19,6 +20,8 @@ union start_info_union start_info_union;
 shared_info_t *HYPERVISOR_shared_info;
 
 extern char shared_info_page[PAGE_SIZE];
+
+void *device_tree;
 
 static int hvm_get_parameter(int idx, uint64_t *value)
 {
@@ -72,7 +75,14 @@ void arch_init(void *dtb_pointer)
 
     memset(&__bss_start, 0, &_end - &__bss_start);
 
-    printk("dtb_pointer : %x\n", dtb_pointer);
+    printk("Checking DTB at %x...\n", dtb_pointer);
+
+    int r;
+    if ((r = fdt_check_header(dtb_pointer))) {
+        printk("Invalid DTB from Xen: %s\n", fdt_strerror(r));
+        BUG();
+    }
+    device_tree = dtb_pointer;
 
     /* Map shared_info page */
     xatp.domid = DOMID_SELF;
