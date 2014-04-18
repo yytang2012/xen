@@ -18,6 +18,11 @@ _start:
 @ => r2 -> DTB
 @ <= never returns
 reset:
+	@ Enable SMP mode for CPU0, by setting bit 6 of Auxiliary Ctl reg (from U-Boot)
+	mrc p15, 0, r0, c1, c0, 1
+	orr r0, r0, #1 << 6
+	mcr p15, 0, r0, c1, c0, 1
+
 	@ Fill in the top-level translation table (at page_dir). Based on Mini-OS code.
 	@ Populate the whole pagedir with 1MB section descriptors.
 	@ TEX[2:0] C B = 001 1 1 (outer and inner write-back, write-allocate)
