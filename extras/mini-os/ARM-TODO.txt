@@ -1,4 +1,3 @@
-* support abort exception handling ( and others )
 * gic request_irq implementation, currently all IRQs all hardcoded in gic irq handler.
 * Add virtual memory support and make vstart = 0
 * fini_gnttab
