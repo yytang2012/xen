@@ -13,7 +13,7 @@ void timer_handler(evtchn_port_t port, struct pt_regs *regs, void *ign);
 
 extern void *device_tree;
 
-#define BUG() while(1){}
+#define BUG() while(1){asm volatile (".word 0xe7f000f0\n");} /* Undefined instruction; will call our fault handler. */
 
 #define smp_processor_id() 0
 
