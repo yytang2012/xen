@@ -270,6 +270,7 @@ void test_xenbus(void);
 
 void idle_thread_fn(void *unused)
 {
+    printk("idle_thread_fn: enter\n");
     threads_started = 1;
     while (1) {
     	test_xenbus();

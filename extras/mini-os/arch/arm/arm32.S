@@ -36,6 +36,18 @@ reset:
 	cmp	r1, r3
 	bne	1b
 
+	@ XXX
+	@ TEX[2:0] C B = 000 0 1 (sharable device)
+	ldr	r3, =page_dir
+	ldr	r0, =(0x2 +  		/* Section entry */ \
+		      0x4 +  		/* C B */ \
+		      (3 << 10) + 	/* Read/write */ \
+		      (0 << 12) +	/* TEX */ \
+		      (1 << 16) +	/* Sharable */ \
+		      (704 << 20) +	/* GIC from 2c000000 */ \
+		      (1<<19))		/* Non-secure */
+	str	r0, [r3, #704 << 2]	@ GIC from 2c000000
+
 	@ Tell the system where our new table is located.
 	ldr	r3, =page_dir
 	mcr	p15, 0, r3, c2, c0, 0	@ set ttbr0
@@ -65,8 +77,30 @@ reset:
 	@ Initialise 16 KB stack
 	ldr	sp, =stack_end
 
+	/*
+	@ Enable GIC
+	ldr	r1, =0x2c001000		@ r1 = GICD
+	mov	r0, #3			@ Enable
+	str	r0, [r1]		@ GICD_CTLR
+
+	mov	r0, #1 << 31		@ EVENT_IRQ
+	str	r0, [r1, #0x100]	@ GICD_ISENABLER0
+
+	ldr	r1, =0x2c002000		@ r1 = GICC
+	mov	r0, #3
+	str	r0, [r1]		@ GICC_CTLR
+
+	cpsie	i			@ Interrupts enabled
+
+	@ Wait
+	mov	r1, #8
+	adr	r2, message
+	b	arm_panic
+	*/
+
 	mov	r0, r2			@ C wants the DTB pointer in r0
 	b	arch_init
+message:	.ascii "Waiting\n"
 
 .pushsection .data
 .align 13
@@ -77,6 +111,7 @@ stack_end:
 .align 13
 irqstack:
 	.fill (1024), 4, 0x0
+irqstack_end:
 .globl shared_info_page
 .align 13
 shared_info_page:
@@ -137,34 +172,28 @@ exception_vector_table:
 	b	fault @ prefetch call
 	b	fault @ prefetch abort
 	b	fault @ data abort //FIXME CLREX
-	b	irq_handler @ irq
-	b	firq_handler @ firq
+	b	irq_handler @ IRQ
+	.word 0xe7f000f0    @ abort on FIQ
 
 irq_handler:
-firq_handler:
-	ldr	sp, =irqstack
-	add	sp, sp, #(4*1024)
+	ldr	sp, =irqstack_end
+	push	{r0 - r12, r14}
 
-	@ Save registers
-	stmda	sp!, {r0 - r12}
-	stmda	sp!, {lr}
+	/*
+	ldr	r0, =0x2c00200c @ GICC_IAR
+	ldr	r1, [r0]
+	ldr	r2, =0x3ff
+	cmp	r1, r2
+	.word	0x07f000f0    @ und
+	*/
 
-	@ FIXME Find interrupt id and dispatch to the correct handler.
-	@ If event_irq
 	ldr	r0, IRQ_handler
 	cmp	r0, #0
-	beq	. @ If no IRQ handler was setup, just get stuck here!
-
-	adr	lr, 1f
-	mov	pc, r0
-1:
-	@bl	do_hypervisor_callback
-
-	@ Restore registers
-	ldmib	sp!, {lr}
-	ldmib	sp!, {r0 - r12}
+	.word	0x07f000f0    @ undeq - register dump if no handler
+	blx	r0
 
 	@ Return from IRQ
+	pop	{r0 - r12, r14}
 	subs	pc, lr, #4
 
 .globl IRQ_handler
