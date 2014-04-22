@@ -4,7 +4,7 @@
 #include <mini-os/hypervisor.h>
 #include <libfdt.h>
 
-//#define VGIC_DEBUG
+#define VGIC_DEBUG
 #ifdef VGIC_DEBUG
 #define DEBUG(_f, _a...) \
     printk("MINI_OS(file=gic.c, line=%d) " _f , __LINE__, ## _a)
@@ -96,7 +96,9 @@ static void gic_enable_interrupt(struct gic *gic, unsigned char irq_number,
 
 	// enable forwarding interrupt from distributor to cpu interface
 	set_enable_reg = (void *)gicd(gic, GICD_ISENABLER);
+	printk("gic_enable_interrupt %d (%p)\n", irq_number, set_enable_reg);
 	set_bit(irq_number, set_enable_reg);
+	printk("gic_enable_interrupt done\n");
 	wmb();
 }
 
@@ -134,16 +136,18 @@ static void gic_eoir(struct gic *gic, uint32_t irq) {
 //FIXME Get event_irq from dt
 #define EVENTS_IRQ 31
 #define VIRTUALTIMER_IRQ 27
+#define SPURIOUS_IRQ 1023
 
 //FIXME Move to a header file
 #define VTIMER_TICK 0x6000000
 void timer_handler(evtchn_port_t port, struct pt_regs *regs, void *ign);
 void increment_vtimer_compare(uint64_t inc);
+static int spur = 0;
 
 static void gic_handler(void) {
 	unsigned int irq = gic_readiar(&gic);
 
-	DEBUG("IRQ received : %i\n", irq);
+	//DEBUG("IRQ received : %i\n", irq);
 	switch(irq) {
 	case EVENTS_IRQ:
 		do_hypervisor_callback(NULL);
@@ -152,12 +156,17 @@ static void gic_handler(void) {
 		timer_handler(0, NULL, 0);
 		increment_vtimer_compare(VTIMER_TICK);
 		break;
+	case SPURIOUS_IRQ:
+		if (spur % 10000000 == 0)			// XXX
+			printk("10 million spurious interrupts\n");
+		spur++;
+		break;
 	default:
 		DEBUG("Unhandled irq\n");
 		break;
 	}
 
-	DEBUG("EIRQ\n");
+	//DEBUG("EIRQ\n");
 
 	gic_eoir(&gic, irq);
 }
@@ -171,6 +180,12 @@ void gic_init(void) {
                 node = fdt_next_node(device_tree, node, &depth);
                 if (node <= 0 || depth < 0)
                     break;
+
+		/*
+		int name_len = 0;
+		const char *name = fdt_get_name(device_tree, node, &name_len);
+		printk("Found node: %d (%.*s)\n", node, name_len, name);
+		*/
 
 		if (fdt_getprop(device_tree, node, "interrupt-controller", NULL)) {
 			int len = 0;
@@ -195,7 +210,9 @@ void gic_init(void) {
 
 	gic_disable_interrupts(&gic);
 	gic_cpu_set_priority(&gic, 0xff);
-	gic_enable_interrupt(&gic, EVENTS_IRQ /* interrupt number */, 0x1 /*cpu_set*/, 1 /*level_sensitive*/, 0 /* ppi */);
+	gic_enable_interrupt(&gic, EVENTS_IRQ + 1 /* interrupt number */, 0x1 /*cpu_set*/, 1 /*level_sensitive*/, 0 /* ppi */);
+	if (0) {
 	gic_enable_interrupt(&gic, VIRTUALTIMER_IRQ /* interrupt number */, 0x1 /*cpu_set*/, 1 /*level_sensitive*/, 1 /* ppi */);
 	gic_enable_interrupts(&gic);
+	}
 }

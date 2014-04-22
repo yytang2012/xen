@@ -36,6 +36,18 @@ reset:
 	cmp	r1, r3
 	bne	1b
 
+	@ XXX
+	@ TEX[2:0] C B = 000 0 1 (sharable device)
+	ldr	r3, =page_dir
+	ldr	r0, =(0x2 +  		/* Section entry */ \
+		      0x4 +  		/* C B */ \
+		      (3 << 10) + 	/* Read/write */ \
+		      (0 << 12) +	/* TEX */ \
+		      (1 << 16) +	/* Sharable */ \
+		      (704 << 20) +	/* GIC from 2c000000 */ \
+		      (1<<19))		/* Non-secure */
+	str	r0, [r3, #704 << 2]	@ GIC from 2c000000
+
 	@ Tell the system where our new table is located.
 	ldr	r3, =page_dir
 	mcr	p15, 0, r3, c2, c0, 0	@ set ttbr0
@@ -65,8 +77,30 @@ reset:
 	@ Initialise 16 KB stack
 	ldr	sp, =stack_end
 
+	/*
+	@ Enable GIC
+	ldr	r1, =0x2c001000		@ r1 = GICD
+	mov	r0, #3			@ Enable
+	str	r0, [r1]		@ GICD_CTLR
+
+	mov	r0, #1 << 31		@ EVENT_IRQ
+	str	r0, [r1, #0x100]	@ GICD_ISENABLER0
+
+	ldr	r1, =0x2c002000		@ r1 = GICC
+	mov	r0, #3
+	str	r0, [r1]		@ GICC_CTLR
+
+	cpsie	i			@ Interrupts enabled
+
+	@ Wait
+	mov	r1, #8
+	adr	r2, message
+	b	arm_panic
+	*/
+
 	mov	r0, r2			@ C wants the DTB pointer in r0
 	b	arch_init
+message:	.ascii "Waiting\n"
 
 .pushsection .data
 .align 13
@@ -143,7 +177,13 @@ exception_vector_table:
 
 irq_handler:
 	ldr	sp, =irqstack_end
-	stmfd	sp!, {r0 - r12, r14}
+	push	{r0 - r12, r14}
+
+	ldr	r0, =0x2c00200c @ GICC_IAR	/* XXX: spurious */
+	ldr	r1, [r0]
+	ldr	r2, =0x3ff
+	cmp	r1, r2
+	.word	0x07f000f0    @ und
 
 	ldr	r0, IRQ_handler
 	cmp	r0, #0
@@ -151,7 +191,7 @@ irq_handler:
 	blx	r0
 
 	@ Return from IRQ
-	ldmfd	sp!, {r0 - r12, r14}
+	pop	{r0 - r12, r14}
 	subs	pc, lr, #4
 
 .globl IRQ_handler
