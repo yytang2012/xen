@@ -100,11 +100,11 @@ void schedule(void)
         next = NULL;
         MINIOS_TAILQ_FOREACH_SAFE(thread, &thread_list, thread_list, tmp)
         {
-        	DEBUG("Checking thread : %s (runnable:%i)\n", thread->name, is_runnable(thread));
+            DEBUG("Checking thread : %s (runnable:%i)\n", thread->name, is_runnable(thread));
             if (!is_runnable(thread) && thread->wakeup_time != 0LL)
             {
                 if (thread->wakeup_time <= now) {
-                	DEBUG("Wake thread : %s\n", thread->name);
+                    DEBUG("Wake thread : %s\n", thread->name);
                     wake(thread);
                 }
                 else if (thread->wakeup_time < min_wakeup_time)
@@ -112,7 +112,7 @@ void schedule(void)
             }
             if(is_runnable(thread)) 
             {
-            	DEBUG("Thread (%s) is runnable, put it next\n", thread->name);
+                DEBUG("Thread (%s) is runnable, put it next\n", thread->name);
                 next = thread;
                 /* Put this thread on the end of the list */
                 MINIOS_TAILQ_REMOVE(&thread_list, thread, thread_list);
@@ -150,7 +150,7 @@ struct thread* create_thread(char *name, void (*function)(void *), void *data)
     /* Call architecture specific setup. */
     thread = arch_create_thread(name, function, data);
     if(!thread)
-    	BUG(); //For now, FIXME should just return NULL
+        BUG(); //For now, FIXME should just return NULL
 
     /* Not runable, not exited, not sleeping */
     thread->flags = 0;
@@ -172,28 +172,28 @@ struct _reent *__getreent(void)
     struct _reent *_reent;
 
     if (!threads_started)
-	_reent = _impure_ptr;
+        _reent = _impure_ptr;
     else if (in_callback)
-	_reent = &callback_reent;
+        _reent = &callback_reent;
     else
-	_reent = &get_current()->reent;
+        _reent = &get_current()->reent;
 
 #ifndef NDEBUG
 #if defined(__x86_64__) || defined(__x86__)
     {
 #ifdef __x86_64__
-	register unsigned long sp asm ("rsp");
+        register unsigned long sp asm ("rsp");
 #else
-	register unsigned long sp asm ("esp");
+        register unsigned long sp asm ("esp");
 #endif
-	if ((sp & (STACK_SIZE-1)) < STACK_SIZE / 16) {
-	    static int overflowing;
-	    if (!overflowing) {
-		overflowing = 1;
-		printk("stack overflow\n");
-		BUG();
-	    }
-	}
+        if ((sp & (STACK_SIZE-1)) < STACK_SIZE / 16) {
+            static int overflowing;
+            if (!overflowing) {
+                overflowing = 1;
+                printk("stack overflow\n");
+                BUG();
+            }
+        }
     }
 #endif
 #else
