@@ -31,7 +31,9 @@ extern char stack[];
 #define mfn_to_virt(_mfn)          (to_virt(PFN_PHYS(_mfn)))
 #define pfn_to_virt(_pfn)          (to_virt(PFN_PHYS(_pfn)))
 
-/* For now, we use a 1:1 mapping of physical and virtual pages. */
+/* f is an array of n physical page numbers.
+ * Map them into a contiguous region of virtual memory and return the start address.
+ */
 #define map_frames(f, n) (pfn_to_virt(f))
 
 #endif
