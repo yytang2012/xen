@@ -72,6 +72,8 @@ gnttab_grant_access(domid_t domid, unsigned long frame, int readonly)
 {
     grant_ref_t ref;
 
+    BUG_ON(gnttab_table == NULL);
+
     ref = get_free_entry();
     gnttab_table[ref].frame = frame;
     gnttab_table[ref].domid = domid;
@@ -165,7 +167,7 @@ gnttabop_error(int16_t status)
 {
     status = -status;
     if (status < 0 || status >= ARRAY_SIZE(gnttabop_error_msgs))
-	return "bad status";
+        return "bad status";
     else
         return gnttabop_error_msgs[status];
 }

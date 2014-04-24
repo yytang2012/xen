@@ -272,7 +272,7 @@ void idle_thread_fn(void *unused)
 {
     threads_started = 1;
     while (1) {
-        test_xenbus();
+        //test_xenbus();
         block(current);
         schedule();
     }
