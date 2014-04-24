@@ -75,6 +75,7 @@ gnttab_grant_access(domid_t domid, unsigned long frame, int readonly)
     BUG_ON(gnttab_table == NULL);
 
     ref = get_free_entry();
+    printk("gnttab_grant_access: will shared ref %d: frame=%d domid=%d\n", ref, frame, domid);
     gnttab_table[ref].frame = frame;
     gnttab_table[ref].domid = domid;
     wmb();
@@ -192,6 +193,9 @@ init_gnttab(void)
     HYPERVISOR_grant_table_op(GNTTABOP_setup_table, &setup, 1);
     gnttab_table = map_frames(frames, NR_GRANT_FRAMES);
     printk("gnttab_table mapped at %p.\n", gnttab_table);
+    printk("testing\n");
+    gnttab_table[NR_GRANT_ENTRIES - 1].frame = 0;
+    printk("test passed\n");
 }
 
 void
