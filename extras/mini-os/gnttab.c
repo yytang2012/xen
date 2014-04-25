@@ -20,6 +20,10 @@
 #include <mini-os/gnttab.h>
 #include <mini-os/semaphore.h>
 #include <mini-os/hypervisor.h>
+#include <xen/memory.h>
+#include <libfdt.h>
+
+extern void *device_tree;
 
 #define NR_RESERVED_ENTRIES 8
 
@@ -165,17 +169,41 @@ gnttabop_error(int16_t status)
 {
     status = -status;
     if (status < 0 || status >= ARRAY_SIZE(gnttabop_error_msgs))
-	return "bad status";
+        return "bad status";
     else
         return gnttabop_error_msgs[status];
+}
+
+/* Get Xen's sugggested physical page assignments for the grant table. */
+static grant_entry_t *get_gnttab_base(void)
+{
+    int hypervisor;
+
+    hypervisor = fdt_path_offset(device_tree, "/hypervisor");
+    BUG_ON(hypervisor < 0);
+
+    int len = 0;
+    const uint64_t *regs = fdt_getprop(device_tree, hypervisor, "reg", &len);
+    if (regs == NULL || len != 16) {
+            printk("Bad 'reg' property: %p %d\n", regs, len);
+            BUG();
+    }
+
+    unsigned int gnttab_base = fdt64_to_cpu(regs[0]);
+
+    printk("FDT suggests grant table base %lx\n", gnttab_base);
+
+    return (grant_entry_t *) gnttab_base;
 }
 
 void
 init_gnttab(void)
 {
+    struct xen_add_to_physmap xatp;
     struct gnttab_setup_table setup;
-    unsigned long frames[NR_GRANT_FRAMES];
-    int i;
+    xen_pfn_t frames[NR_GRANT_FRAMES];
+    int i, rc;
+    gnttab_table = get_gnttab_base();
 
 #ifdef GNT_DEBUG
     memset(inuse, 1, sizeof(inuse));
@@ -183,12 +211,32 @@ init_gnttab(void)
     for (i = NR_RESERVED_ENTRIES; i < NR_GRANT_ENTRIES; i++)
         put_free_entry(i);
 
+    for (i = 0; i < NR_GRANT_FRAMES; i++)
+    {
+        xatp.domid = DOMID_SELF;
+        xatp.size = 0;      /* Seems to be unused */
+        xatp.space = XENMAPSPACE_grant_table;
+        xatp.idx = i;
+        xatp.gpfn = (((unsigned long) gnttab_table) >> PAGE_SHIFT) + i;
+        rc = HYPERVISOR_memory_op(XENMEM_add_to_physmap, &xatp);
+        BUG_ON(rc != 0);
+    }
+
     setup.dom = DOMID_SELF;
     setup.nr_frames = NR_GRANT_FRAMES;
     set_xen_guest_handle(setup.frame_list, frames);
 
+    setup.status = -1;
     HYPERVISOR_grant_table_op(GNTTABOP_setup_table, &setup, 1);
-    gnttab_table = map_frames(frames, NR_GRANT_FRAMES);
+    if (setup.status != 0)
+    {
+        printk("GNTTABOP_setup_table failed; status = %d\n", setup.status);
+        BUG();
+    }
+
+    for (i = 0; i < NR_GRANT_FRAMES; i++)
+        printk("frames[%d] = %lx\n", i, frames[i]);
+
     printk("gnttab_table mapped at %p.\n", gnttab_table);
 }
 
