@@ -48,6 +48,8 @@ SECTIONS
 
   _edata = .;			/* End of data section */
 
+  /* Nothing after here is included in the zImage's size */
+
   __bss_start = .;		/* BSS */
   .bss : {
 	*(.bss)

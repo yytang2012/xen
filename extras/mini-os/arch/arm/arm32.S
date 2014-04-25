@@ -10,8 +10,8 @@ _start:
 .endr
         b       reset
         .word   0x016f2818      @ Magic numbers to help the loader
-        .word   _start		@ absolute load/run zImage address
-        .word   _end - _start   @ zImage size
+        .word   0		@ zImage start address
+        .word   _edata - _start @ zImage end address (excludes bss section)
 	@ end of zImage header
 
 @ Called at boot time. Sets up MMU, exception vectors and stack, and then calls C setup() function.
