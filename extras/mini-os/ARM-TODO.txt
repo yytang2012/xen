@@ -1,6 +1,5 @@
 * scheduling!
 * gic request_irq implementation, currently all IRQs all hardcoded in gic irq handler.
-* use device tree instead of the currently hardcoded values
 * Add virtual memory support and make vstart = 0 ( use 4k descriptors instead of 1M descriptors )
 * sched
 * fini_gnttab
