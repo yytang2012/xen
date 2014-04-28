@@ -1,5 +1,7 @@
 #include <console.h>
+#include <xen/memory.h>
 #include <arm/arch_mm.h>
+#include <mini-os/hypervisor.h>
 #include <libfdt.h>
 #include <lib.h>
 
@@ -18,6 +20,7 @@ unsigned long allocate_ondemand(unsigned long n, unsigned long alignment)
 {
     // FIXME
     BUG();
+    return -1;
 }
 
 void arch_init_mm(unsigned long* start_pfn_p, unsigned long* max_pfn_p)
@@ -103,4 +106,60 @@ void arch_init_p2m(unsigned long max_pfn)
 
 void arch_init_demand_mapping_area(unsigned long cur_pfn)
 {
+}
+
+/* Get Xen's sugggested physical page assignments for the grant table. */
+static grant_entry_t *get_gnttab_base(void)
+{
+    int hypervisor;
+
+    hypervisor = fdt_path_offset(device_tree, "/hypervisor");
+    BUG_ON(hypervisor < 0);
+
+    int len = 0;
+    const uint64_t *regs = fdt_getprop(device_tree, hypervisor, "reg", &len);
+    if (regs == NULL || len != 16) {
+            printk("Bad 'reg' property: %p %d\n", regs, len);
+            BUG();
+    }
+
+    unsigned int gnttab_base = fdt64_to_cpu(regs[0]);
+
+    printk("FDT suggests grant table base %lx\n", gnttab_base);
+
+    return (grant_entry_t *) gnttab_base;
+}
+
+grant_entry_t *arch_init_gnttab(int nr_grant_frames)
+{
+    struct xen_add_to_physmap xatp;
+    struct gnttab_setup_table setup;
+    xen_pfn_t frames[nr_grant_frames];
+    grant_entry_t *gnttab_table;
+    int i, rc;
+
+    gnttab_table = get_gnttab_base();
+
+    for (i = 0; i < nr_grant_frames; i++)
+    {
+        xatp.domid = DOMID_SELF;
+        xatp.size = 0;      /* Seems to be unused */
+        xatp.space = XENMAPSPACE_grant_table;
+        xatp.idx = i;
+        xatp.gpfn = (((unsigned long) gnttab_table) >> PAGE_SHIFT) + i;
+        rc = HYPERVISOR_memory_op(XENMEM_add_to_physmap, &xatp);
+        BUG_ON(rc != 0);
+    }
+
+    setup.dom = DOMID_SELF;
+    setup.nr_frames = nr_grant_frames;
+    set_xen_guest_handle(setup.frame_list, frames);
+    HYPERVISOR_grant_table_op(GNTTABOP_setup_table, &setup, 1);
+    if (setup.status != 0)
+    {
+        printk("GNTTABOP_setup_table failed; status = %d\n", setup.status);
+        BUG();
+    }
+
+    return gnttab_table;
 }
