@@ -126,7 +126,9 @@ void dump_registers(int *saved_registers) {
 	printk("CPSR = %x\n", saved_registers[16]);
 }
 
+#ifdef __arm__
 void gic_init(void);
+#endif
 
 void start_kernel(void)
 {

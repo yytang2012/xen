@@ -17,6 +17,7 @@
 
 
 #ifndef __ASSEMBLY__
+#include <stdint.h>
 #include <mini-os/types.h>
 #include <mini-os/hypervisor.h>
 #include <mini-os/kernel.h>
@@ -65,9 +66,6 @@ void trap_init(void);
 void trap_fini(void);
 
 void arch_fini(void);
-
-
-
 
 
 /* 
