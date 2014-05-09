@@ -43,9 +43,8 @@ EXTRA_DEPS += $(MINI-OS_ROOT)/minios.mk
 EXTRA_DEPS += $(MINI-OS_ROOT)/$(TARGET_ARCH_DIR)/arch.mk
 
 # Find all header files for checking dependencies.
-HDRS := $(wildcard $(MINI-OS_ROOT)/include/*.h)
+HDRS := $(shell find $(MINI-OS_ROOT)/include -iname '*.h')
 HDRS += $(wildcard $(MINI-OS_ROOT)/include/xen/*.h)
-HDRS += $(wildcard $(ARCH_INC)/*.h)
 # For special wanted header directories.
 extra_heads := $(foreach dir,$(EXTRA_INC),$(wildcard $(dir)/*.h))
 HDRS += $(extra_heads)

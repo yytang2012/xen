@@ -40,7 +40,7 @@
 #include <mini-os/traps.h>
 #include <mini-os/types.h>
 #include <xen/grant_table.h>
-#include <xenbus.h>
+#include <mini-os/xenbus.h>
 #include <xen/io/console.h>
 #include <xen/event_channel.h>
 #include <stdarg.h>

@@ -81,10 +81,8 @@ docs/xen-api/xenapi.dvi
 docs/xen-api/xenapi.pdf
 docs/xen-api/xenapi.ps
 docs/xen-api/xenapi.toc
-extras/mini-os/include/mini-os
-extras/mini-os/include/x86/mini-os
 extras/mini-os/include/xen
-extras/mini-os/include/list.h
+extras/mini-os/include/mini-os/list.h
 extras/mini-os/mini-os*
 install/*
 linux-[^/]*-paravirt/*

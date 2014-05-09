@@ -58,7 +58,7 @@
 #ifdef HAVE_LIBC
 #include <stdio.h>
 #else
-#include <lib-gpl.h>
+#include <mini-os/lib-gpl.h>
 #endif
 
 #ifdef HAVE_LIBC

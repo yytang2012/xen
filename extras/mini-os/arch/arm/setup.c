@@ -1,8 +1,8 @@
 #include <mini-os/os.h>
 #include <xen/xen.h>
 #include <xen/memory.h>
-#include <hypervisor.h>
-#include <arm/arch_mm.h>
+#include <mini-os/hypervisor.h>
+#include <arm/mini-os/arch_mm.h>
 #include <libfdt.h>
 
 /*

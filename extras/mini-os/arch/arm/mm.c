@@ -1,9 +1,9 @@
-#include <console.h>
+#include <mini-os/console.h>
 #include <xen/memory.h>
-#include <arm/arch_mm.h>
+#include <arm/mini-os/arch_mm.h>
 #include <mini-os/hypervisor.h>
 #include <libfdt.h>
-#include <lib.h>
+#include <mini-os/lib.h>
 
 #define PHYS_START (0x80008000 + (1000 * 4 * 1024))
 #define PHYS_SIZE (40*1024*1024)

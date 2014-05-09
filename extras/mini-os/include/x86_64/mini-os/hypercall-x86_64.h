@@ -37,7 +37,7 @@
 #include <xen/xen.h>
 #include <xen/sched.h>
 #include <mini-os/mm.h>
-#include <arch_mm.h>
+#include <mini-os/arch_mm.h>
 
 #define __STR(x) #x
 #define STR(x) __STR(x)

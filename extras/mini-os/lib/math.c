@@ -48,7 +48,7 @@
 
 #include <mini-os/types.h>
 #include <mini-os/lib.h>
-#include <mini-os/time.h>
+#include <time.h>
 
 /* XXX RN: Yuck hardcoded endianess :) */
 #define _QUAD_HIGHWORD 1

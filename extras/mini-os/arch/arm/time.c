@@ -3,7 +3,7 @@
 #include <mini-os/events.h>
 #include <mini-os/traps.h>
 #include <mini-os/types.h>
-#include <mini-os/time.h>
+#include <time.h>
 #include <mini-os/lib.h>
 
 //#define VTIMER_DEBUG

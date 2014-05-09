@@ -30,7 +30,7 @@
 #include <mini-os/hypervisor.h>
 #include <mini-os/mm.h>
 #include <mini-os/events.h>
-#include <mini-os/time.h>
+#include <time.h>
 #include <mini-os/types.h>
 #include <mini-os/lib.h>
 #include <mini-os/sched.h>
