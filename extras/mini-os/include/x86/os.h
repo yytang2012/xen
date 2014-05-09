@@ -17,6 +17,7 @@
 
 
 #ifndef __ASSEMBLY__
+#include <stdint.h>
 #include <mini-os/types.h>
 #include <mini-os/hypervisor.h>
 #include <mini-os/kernel.h>
@@ -67,9 +68,12 @@ void trap_fini(void);
 void arch_fini(void);
 
 
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> 60c7a92... mini-os: Make x86_64 support work again
 /* 
  * The use of 'barrier' in the following reflects their use as local-lock
  * operations. Reentrancy must be prevented (e.g., __cli()) /before/ following
