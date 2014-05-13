@@ -19,18 +19,16 @@
 #endif
 
 #ifdef HAVE_LIBC
-#include <os.h>
-#include <console.h>
-#include <sched.h>
-#include <events.h>
-#include <wait.h>
-#include <netfront.h>
-#include <blkfront.h>
-#include <fbfront.h>
-#include <tpmfront.h>
-#include <tpm_tis.h>
-#include <xenbus.h>
-#include <xenstore.h>
+#include <mini-os/os.h>
+#include <mini-os/console.h>
+#include <mini-os/sched.h>
+#include <mini-os/events.h>
+#include <mini-os/wait.h>
+#include <mini-os/netfront.h>
+#include <mini-os/blkfront.h>
+#include <mini-os/fbfront.h>
+#include <mini-os/xenbus.h>
+#include <xen/xenstore/xs.h>
 #include <poll.h>
 
 #include <sys/types.h>
@@ -236,7 +234,7 @@ int isatty(int fd)
     return files[fd].type == FTYPE_CONSOLE;
 }
 
-int read(int fd, void *buf, size_t nbytes)
+ssize_t read(int fd, void *buf, size_t nbytes)
 {
     switch (files[fd].type) {
         case FTYPE_SAVEFILE:
@@ -315,7 +313,7 @@ int read(int fd, void *buf, size_t nbytes)
     return -1;
 }
 
-int write(int fd, const void *buf, size_t nbytes)
+ssize_t write(int fd, const void *buf, size_t nbytes)
 {
     switch (files[fd].type) {
         case FTYPE_SAVEFILE: {

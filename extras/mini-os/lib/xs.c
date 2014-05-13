@@ -7,10 +7,10 @@
  */
 
 #ifdef HAVE_LIBC
-#include <os.h>
-#include <lib.h>
-#include <xenstore.h>
-#include <xenbus.h>
+#include <mini-os/os.h>
+#include <mini-os/lib.h>
+#include <xen/xenstore/xs.h>
+#include <mini-os/xenbus.h>
 #include <stdlib.h>
 #include <unistd.h>
 
