@@ -70,7 +70,7 @@ EXTRA_OBJS =
 TARGET := mini-os
 
 # Subdirectories common to mini-os
-SUBDIRS := lib xenbus console
+SUBDIRS := lib xenbus console lib/fdt
 
 ifeq ($(XEN_TARGET_ARCH),arm32)
 # ARM drivers
