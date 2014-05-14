@@ -50,6 +50,8 @@ flags-$(CONFIG_XENBUS) += -DCONFIG_XENBUS
 
 DEF_CFLAGS += $(flags-y)
 
+EXTRA_DEPS += links include/list.h
+
 # Include common mini-os makerules.
 include minios.mk
 
@@ -192,7 +194,7 @@ ifneq ($(APP_OBJS),)
 APP_O=$(OBJ_DIR)/$(TARGET)_app.o 
 endif
 
-$(OBJ_DIR)/$(TARGET): links include/list.h $(OBJS) $(APP_O) arch_lib
+$(OBJ_DIR)/$(TARGET): $(OBJS) $(APP_O) arch_lib
 	$(LD) -r $(LDFLAGS) $(HEAD_OBJ) $(APP_O) $(OBJS) $(LDARCHLIB) $(LDLIBS) -o $@.o
 	$(OBJCOPY) -w -G $(GLOBAL_PREFIX)* -G _start $@.o $@.o
 	$(LD) $(LDFLAGS) $(LDFLAGS_FINAL) $@.o $(EXTRA_OBJS) -o $@
@@ -234,4 +236,3 @@ tags:
 .PHONY: TAGS
 TAGS:
 	$(all_sources) | xargs etags
-
