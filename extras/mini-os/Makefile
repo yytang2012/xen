@@ -51,9 +51,11 @@ flags-$(CONFIG_XENBUS) += -DCONFIG_XENBUS
 DEF_CFLAGS += $(flags-y)
 
 # Symlinks and headers that must be created before building the C files
-GENERATED_HEADERS := include/list.h $(ARCH_LINKS) include/mini-os include/xen include/$(TARGET_ARCH_FAM)/mini-os
+GENERATED_HEADERS := include/list.h $(ARCH_LINKS) include/mini-os include/xen $(TARGET_ARCH_DIR)/include/mini-os
 
 EXTRA_DEPS += $(GENERATED_HEADERS)
+
+LIBDIR = /usr/lib
 
 # Include common mini-os makerules.
 include minios.mk
@@ -213,6 +215,33 @@ ifeq ($(XEN_TARGET_ARCH),arm32)
 else
 	gzip -f -9 -c $@ >$@.gz
 endif
+
+libminios.a: $(HEAD_OBJ) $(APP_O) $(OBJS) arch_lib
+	rm -f $@
+	ar rcs $@ $(HEAD_OBJ) $(APP_O) $(OBJS) $(wildcard $(OBJ_DIR)/$(TARGET_ARCH_DIR)/*.o)
+
+%.pc: %.pc.in
+	sed 's/@ARCH_LDFLAGS@/${ARCH_LDFLAGS}/g' $^ | sed 's/@ARCH_CFLAGS@/${ARCH_CFLAGS}/g' > $@
+
+# Note: don't install directly to $(DESTDIR)$(LIBDIR) because pkg-config strips out directories in the
+# standard search path but we usually compile using -nostdlib.
+.PHONY: install
+install: libminios.a libminios.pc
+	$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)/mini-os
+	$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)/pkgconfig
+	$(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)
+	$(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)/mini-os
+	$(eval REALDESTDIR := $(abspath $(DESTDIR)))
+	$(INSTALL_DATA) libminios.a $(REALDESTDIR)$(LIBDIR)/mini-os
+	$(INSTALL_DATA) $(OBJ_DIR)/$(TARGET_ARCH_DIR)/$(ARCH_LIB) $(REALDESTDIR)$(LIBDIR)/mini-os
+	$(INSTALL_DATA) arch/$(TARGET_ARCH_FAM)/minios-$(XEN_TARGET_ARCH).lds $(REALDESTDIR)$(LIBDIR)/mini-os/libminios.lds
+	(cd include && find -H . -type d | xargs -I {} $(INSTALL_DIR) $(REALDESTDIR)$(INCLUDEDIR)/mini-os/{})
+	(cd include && find -H . -type f | xargs -I {} $(INSTALL_DATA) {} $(REALDESTDIR)$(INCLUDEDIR)/mini-os/{})
+	(cd include/xen && find -H . -type d | xargs -I {} $(INSTALL_DIR) $(REALDESTDIR)$(INCLUDEDIR)/mini-os/xen/{})
+	(cd include/xen && find -H . -type f | xargs -I {} $(INSTALL_DATA) {} $(REALDESTDIR)$(INCLUDEDIR)/mini-os/xen/{})
+	[ -L $(REALDESTDIR)$(INCLUDEDIR)/mini-os/mini-os ] || ln -s . $(REALDESTDIR)$(INCLUDEDIR)/mini-os/mini-os
+	$(INSTALL_DATA) $(foreach dir,$(EXTRA_INC),$(wildcard $(MINI-OS_ROOT)/$(dir)/*.h)) $(REALDESTDIR)$(INCLUDEDIR)/mini-os/
+	$(INSTALL_DATA) libminios.pc $(REALDESTDIR)$(LIBDIR)/pkgconfig
 
 .PHONY: clean arch_clean
 
