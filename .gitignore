@@ -47,13 +47,14 @@ docs/man5/
 docs/pdf/
 docs/txt/
 extras/mini-os/include/mini-os
-extras/mini-os/include/x86/mini-os
+extras/mini-os/arch/*/include/mini-os
 extras/mini-os/include/xen
 extras/mini-os/include/list.h
 extras/mini-os/include/fdt.h
 extras/mini-os/include/libfdt.h
 extras/mini-os/libfdt
 extras/mini-os/mini-os*
+extras/mini-os/libminios.pc
 install/*
 linux-[^/]*-paravirt/*
 linux-2.6[^/]*/*
