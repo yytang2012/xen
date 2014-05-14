@@ -3,7 +3,7 @@
 #include <xen/xen.h>
 #include <xen/memory.h>
 #include <xen/hvm/params.h>
-#include <arm/arch_mm.h>
+#include <arch_mm.h>
 #include <libfdt.h>
 
 /*

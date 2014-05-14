@@ -1,6 +1,6 @@
 #include <console.h>
 #include <xen/memory.h>
-#include <arm/arch_mm.h>
+#include <arch_mm.h>
 #include <mini-os/hypervisor.h>
 #include <libfdt.h>
 #include <lib.h>
