@@ -50,6 +50,10 @@ flags-$(CONFIG_XENBUS) += -DCONFIG_XENBUS
 
 DEF_CFLAGS += $(flags-y)
 
+LINKS = include/list.h $(ARCH_LINKS) include/mini-os include/xen include/$(TARGET_ARCH_FAM)/mini-os
+
+EXTRA_DEPS += $(LINKS) include/list.h
+
 # Include common mini-os makerules.
 include minios.mk
 
@@ -124,11 +128,14 @@ include/list.h: $(XEN_ROOT)/tools/include/xen-external/bsd-sys-queue-h-seddery $
 	perl $^ --prefix=minios  >$@.new
 	$(call move-if-changed,$@.new,$@)
 
-.PHONY: links
-links: include/list.h $(ARCH_LINKS)
-	[ -e include/xen ] || ln -sf ../../../xen/include/public include/xen
-	[ -e include/mini-os ] || ln -sf . include/mini-os
-	[ -e include/$(TARGET_ARCH_FAM)/mini-os ] || ln -sf . include/$(TARGET_ARCH_FAM)/mini-os
+include/xen:
+	ln -sf ../../../xen/include/public $@
+
+include/mini-os:
+	ln -sf . $@
+
+include/$(TARGET_ARCH_FAM)/mini-os:
+	ln -sf . $@
 
 .PHONY: arch_lib
 arch_lib:
@@ -174,7 +181,7 @@ ifneq ($(APP_OBJS),)
 APP_O=$(OBJ_DIR)/$(TARGET)_app.o 
 endif
 
-$(OBJ_DIR)/$(TARGET): links include/list.h $(OBJS) $(APP_O) arch_lib
+$(OBJ_DIR)/$(TARGET): $(OBJS) $(APP_O) arch_lib
 	$(LD) -r $(LDFLAGS) $(HEAD_OBJ) $(APP_O) $(OBJS) $(LDARCHLIB) $(LDLIBS) -o $@.o
 	$(OBJCOPY) -w -G $(GLOBAL_PREFIX)* -G _start $@.o $@.o
 	$(LD) $(LDFLAGS) $(LDFLAGS_FINAL) $@.o $(EXTRA_OBJS) -o $@
@@ -212,4 +219,3 @@ tags:
 .PHONY: TAGS
 TAGS:
 	$(all_sources) | xargs etags
-
