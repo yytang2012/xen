@@ -52,6 +52,8 @@ DEF_CFLAGS += $(flags-y)
 
 EXTRA_DEPS += links include/list.h
 
+LIBDIR = /usr/lib
+
 # Include common mini-os makerules.
 include minios.mk
 
@@ -203,6 +205,25 @@ ifeq ($(XEN_TARGET_ARCH),arm32)
 else
 	gzip -f -9 -c $@ >$@.gz
 endif
+
+libminios.a: $(HEAD_OBJ) $(APP_O) $(OBJS) arch_lib
+	rm -f $@
+	ar rcs $@ $(HEAD_OBJ) $(APP_O) $(OBJS) $(wildcard $(OBJ_DIR)/$(TARGET_ARCH_DIR)/*.o)
+
+.PHONY: install
+install: libminios.a
+	$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)
+	$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)/pkgconfig
+	$(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)
+	$(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)/minios
+	$(INSTALL_DATA) libminios.a $(DESTDIR)$(LIBDIR)
+	$(INSTALL_DATA) arch/$(TARGET_ARCH_FAM)/minios-$(XEN_TARGET_ARCH).lds $(DESTDIR)$(LIBDIR)/libminios.lds
+	(cd include && find . -type d | xargs -I {} $(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)/minios/{})
+	(cd include && find . -type f | xargs -I {} $(INSTALL_DATA) {} $(DESTDIR)$(INCLUDEDIR)/minios/{})
+	(cd include/xen && find . -type d | xargs -I {} $(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)/minios/xen/{})
+	(cd include/xen && find . -type f | xargs -I {} $(INSTALL_DATA) {} $(DESTDIR)$(INCLUDEDIR)/minios/xen/{})
+	$(INSTALL_DATA) $(foreach dir,$(EXTRA_INC),$(wildcard $(MINI-OS_ROOT)/$(dir)/*.h)) $(DESTDIR)$(INCLUDEDIR)/minios/
+	$(INSTALL_DATA) libminios.pc $(DESTDIR)$(LIBDIR)/pkgconfig
 
 .PHONY: clean arch_clean
 
