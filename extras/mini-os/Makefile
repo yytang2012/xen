@@ -149,7 +149,7 @@ include/list.h: $(XEN_ROOT)/tools/include/xen-external/bsd-sys-queue-h-seddery $
 links: include/list.h $(ARCH_LINKS)
 	[ -e include/xen ] || ln -sf ../../../xen/include/public include/xen
 	[ -e include/mini-os ] || ln -sf . include/mini-os
-	[ -e include/$(TARGET_ARCH_FAM)/mini-os ] || ln -sf . include/$(TARGET_ARCH_FAM)/mini-os
+	[ -e $(TARGET_ARCH_DIR)/include/mini-os ] || ln -sf . $(TARGET_ARCH_DIR)/include/mini-os
 
 .PHONY: arch_lib
 arch_lib:
