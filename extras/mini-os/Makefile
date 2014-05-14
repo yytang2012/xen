@@ -168,7 +168,7 @@ include/xen:
 include/mini-os:
 	ln -sf . $@
 
-include/$(TARGET_ARCH_FAM)/mini-os:
+$(TARGET_ARCH_DIR)/include/mini-os:
 	ln -sf . $@
 
 .PHONY: arch_lib
