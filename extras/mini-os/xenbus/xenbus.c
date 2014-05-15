@@ -44,7 +44,7 @@
 #define DEBUG(_f, _a...)    ((void)0)
 #endif
 
-static struct xenstore_domain_interface *xenstore_buf;
+struct xenstore_domain_interface *xenstore_buf;
 static uint32_t store_evtchn;
 static DECLARE_WAIT_QUEUE_HEAD(xb_waitq);
 DECLARE_WAIT_QUEUE_HEAD(xenbus_watch_queue);

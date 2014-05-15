@@ -52,7 +52,7 @@
 
 /* If console not initialised the printk will be sent to xen serial line 
    NOTE: you need to enable verbose in xen/Rules.mk for it to work. */
-static struct consfront_dev *opt_console_dev = NULL;
+struct consfront_dev *opt_console_dev = NULL;
 
 __attribute__((weak)) void console_input(char * buf, unsigned len)
 {
