@@ -62,7 +62,8 @@ struct consfront_dev {
 #endif
 };
 
-
+/* This will be set by the time app_main is called. */
+extern struct consfront_dev *opt_console_dev;
 
 void print(int direct, const char *fmt, va_list args);
 void printk(const char *fmt, ...);

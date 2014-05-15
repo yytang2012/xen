@@ -15,6 +15,8 @@ static inline void init_xenbus(void)
 }
 #endif
 
+struct xenstore_domain_interface *xenstore_buf;
+
 /* Read the value associated with a path.  Returns a malloc'd error
    string on failure and sets *value to NULL.  On success, *value is
    set to a malloc'd copy of the value. */
