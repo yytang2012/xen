@@ -216,15 +216,17 @@ install: libminios.a
 	$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)
 	$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)/pkgconfig
 	$(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)
-	$(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)/minios
-	$(INSTALL_DATA) libminios.a $(DESTDIR)$(LIBDIR)
-	$(INSTALL_DATA) arch/$(TARGET_ARCH_FAM)/minios-$(XEN_TARGET_ARCH).lds $(DESTDIR)$(LIBDIR)/libminios.lds
-	(cd include && find . -type d | xargs -I {} $(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)/minios/{})
-	(cd include && find . -type f | xargs -I {} $(INSTALL_DATA) {} $(DESTDIR)$(INCLUDEDIR)/minios/{})
-	(cd include/xen && find . -type d | xargs -I {} $(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)/minios/xen/{})
-	(cd include/xen && find . -type f | xargs -I {} $(INSTALL_DATA) {} $(DESTDIR)$(INCLUDEDIR)/minios/xen/{})
-	$(INSTALL_DATA) $(foreach dir,$(EXTRA_INC),$(wildcard $(MINI-OS_ROOT)/$(dir)/*.h)) $(DESTDIR)$(INCLUDEDIR)/minios/
-	$(INSTALL_DATA) libminios.pc $(DESTDIR)$(LIBDIR)/pkgconfig
+	$(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)/mini-os
+	$(eval REALDESTDIR := $(realpath $(DESTDIR)))
+	$(INSTALL_DATA) libminios.a $(REALDESTDIR)$(LIBDIR)
+	$(INSTALL_DATA) arch/$(TARGET_ARCH_FAM)/minios-$(XEN_TARGET_ARCH).lds $(REALDESTDIR)$(LIBDIR)/libminios.lds
+	(cd include && find -H . -type d | xargs -I {} $(INSTALL_DIR) $(REALDESTDIR)$(INCLUDEDIR)/mini-os/{})
+	(cd include && find -H . -type f | xargs -I {} $(INSTALL_DATA) {} $(REALDESTDIR)$(INCLUDEDIR)/mini-os/{})
+	(cd include/xen && find -H . -type d | xargs -I {} $(INSTALL_DIR) $(REALDESTDIR)$(INCLUDEDIR)/mini-os/xen/{})
+	(cd include/xen && find -H . -type f | xargs -I {} $(INSTALL_DATA) {} $(REALDESTDIR)$(INCLUDEDIR)/mini-os/xen/{})
+	-L $(REALDESTDIR)$(INCLUDEDIR)/mini-os/mini-os || ln -s . $(REALDESTDIR)$(INCLUDEDIR)/mini-os/mini-os
+	$(INSTALL_DATA) $(foreach dir,$(EXTRA_INC),$(wildcard $(MINI-OS_ROOT)/$(dir)/*.h)) $(REALDESTDIR)$(INCLUDEDIR)/mini-os/
+	$(INSTALL_DATA) libminios.pc $(REALDESTDIR)$(LIBDIR)/pkgconfig
 
 .PHONY: clean arch_clean
 

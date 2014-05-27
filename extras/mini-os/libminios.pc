@@ -1,6 +1,6 @@
 prefix=/usr
 exec_prefix=${prefix}
-includedir=${prefix}/include
+includedir=${prefix}/include/mini-os
 libdir=${exec_prefix}/lib
 
 Name: mini-os
