@@ -50,7 +50,9 @@ flags-$(CONFIG_XENBUS) += -DCONFIG_XENBUS
 
 DEF_CFLAGS += $(flags-y)
 
-EXTRA_DEPS += links include/list.h
+LINKS = include/list.h $(ARCH_LINKS) include/mini-os include/xen $(TARGET_ARCH_DIR)/include/mini-os
+
+EXTRA_DEPS += $(LINKS) include/list.h
 
 LIBDIR = /usr/lib
 
@@ -146,11 +148,14 @@ include/list.h: $(XEN_ROOT)/tools/include/xen-external/bsd-sys-queue-h-seddery $
 	perl $^ --prefix=minios  >$@.new
 	$(call move-if-changed,$@.new,$@)
 
-.PHONY: links
-links: include/list.h $(ARCH_LINKS)
-	[ -e include/xen ] || ln -sf ../../../xen/include/public include/xen
-	[ -e include/mini-os ] || ln -sf . include/mini-os
-	[ -e $(TARGET_ARCH_DIR)/include/mini-os ] || ln -sf . $(TARGET_ARCH_DIR)/include/mini-os
+include/xen:
+	ln -sf ../../../xen/include/public include/xen
+
+include/mini-os:
+	ln -sf . include/mini-os
+
+$(TARGET_ARCH_DIR)/include/mini-os:
+	ln -sf . $(TARGET_ARCH_DIR)/include/mini-os
 
 .PHONY: arch_lib
 arch_lib:
