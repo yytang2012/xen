@@ -215,10 +215,13 @@ libminios.a: $(HEAD_OBJ) $(APP_O) $(OBJS) arch_lib
 	rm -f $@
 	ar rcs $@ $(HEAD_OBJ) $(APP_O) $(OBJS) $(wildcard $(OBJ_DIR)/$(TARGET_ARCH_DIR)/*.o)
 
+%.pc: %.pc.in
+	sed 's/@ARCH_LDFLAGS@/${ARCH_LDFLAGS}/g' $^ > $@
+
 # Note: don't install directly to $(DESTDIR)$(LIBDIR) because pkg-config strips out directories in the
 # standard search path but we usually compile using -nostdlib.
 .PHONY: install
-install: libminios.a
+install: libminios.a libminios.pc
 	$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)/mini-os
 	$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)/pkgconfig
 	$(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)
