@@ -8,4 +8,4 @@ Version: 4.4
 URL: http://wiki.xen.org/wiki/Mini-OS
 Description: A tiny OS kernel that can run under Xen
 Cflags: -I${includedir}
-Libs: -L${libdir} -lminios -T ${libdir}/libminios.lds
+Libs: -L${libdir}/mini-os -lminios -T ${libdir}/mini-os/libminios.lds

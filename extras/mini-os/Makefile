@@ -210,15 +210,17 @@ libminios.a: $(HEAD_OBJ) $(APP_O) $(OBJS) arch_lib
 	rm -f $@
 	ar rcs $@ $(HEAD_OBJ) $(APP_O) $(OBJS) $(wildcard $(OBJ_DIR)/$(TARGET_ARCH_DIR)/*.o)
 
+# Note: don't install directly to $(DESTDIR)$(LIBDIR) because pkg-config strips out directories in the
+# standard search path but we usually compile using -nostdlib.
 .PHONY: install
 install: libminios.a
-	$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)
+	$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)/mini-os
 	$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)/pkgconfig
 	$(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)
 	$(INSTALL_DIR) $(DESTDIR)$(INCLUDEDIR)/mini-os
 	$(eval REALDESTDIR := $(realpath $(DESTDIR)))
-	$(INSTALL_DATA) libminios.a $(REALDESTDIR)$(LIBDIR)
-	$(INSTALL_DATA) arch/$(TARGET_ARCH_FAM)/minios-$(XEN_TARGET_ARCH).lds $(REALDESTDIR)$(LIBDIR)/libminios.lds
+	$(INSTALL_DATA) libminios.a $(REALDESTDIR)$(LIBDIR)/mini-os
+	$(INSTALL_DATA) arch/$(TARGET_ARCH_FAM)/minios-$(XEN_TARGET_ARCH).lds $(REALDESTDIR)$(LIBDIR)/mini-os/libminios.lds
 	(cd include && find -H . -type d | xargs -I {} $(INSTALL_DIR) $(REALDESTDIR)$(INCLUDEDIR)/mini-os/{})
 	(cd include && find -H . -type f | xargs -I {} $(INSTALL_DATA) {} $(REALDESTDIR)$(INCLUDEDIR)/mini-os/{})
 	(cd include/xen && find -H . -type d | xargs -I {} $(INSTALL_DIR) $(REALDESTDIR)$(INCLUDEDIR)/mini-os/xen/{})
