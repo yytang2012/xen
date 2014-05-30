@@ -22,10 +22,10 @@ void run_server(void *p)
 
     start_networking();
 
-    if (0) {
-        struct ip_addr ipaddr = { htonl(0x0a000001) };
+    if (1) {
+        struct ip_addr ipaddr = { htonl((10<<24) + (0<<16) + (2<<8) + 23) };
         struct ip_addr netmask = { htonl(0xff000000) };
-        struct ip_addr gw = { 0 };
+        struct ip_addr gw = { htonl((10<<24) + (0<<16) + (2<<8) + 15) };
         networking_set_addr(&ipaddr, &netmask, &gw);
     }
 
