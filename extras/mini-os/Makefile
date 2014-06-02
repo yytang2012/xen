@@ -16,21 +16,21 @@ include $(MINIOS_CONFIG)
 endif
 
 # Configuration defaults
-CONFIG_START_NETWORK ?= y
+CONFIG_START_NETWORK ?= n
 CONFIG_SPARSE_BSS ?= y
 CONFIG_QEMU_XS_ARGS ?= n
 CONFIG_TEST ?= n
 CONFIG_PCIFRONT ?= n
-CONFIG_BLKFRONT ?= y
+CONFIG_BLKFRONT ?= n
 CONFIG_TPMFRONT ?= n
 CONFIG_TPM_TIS ?= n
 CONFIG_TPMBACK ?= n
-CONFIG_NETFRONT ?= y
-CONFIG_FBFRONT ?= y
-CONFIG_KBDFRONT ?= y
-CONFIG_CONSFRONT ?= y
+CONFIG_NETFRONT ?= n
+CONFIG_FBFRONT ?= n
+CONFIG_KBDFRONT ?= n
+CONFIG_CONSFRONT ?= n
 CONFIG_XENBUS ?= y
-CONFIG_XC ?=y
+CONFIG_XC ?= n
 CONFIG_LWIP ?= $(lwip)
 
 # Export config items as compiler directives
@@ -70,12 +70,15 @@ EXTRA_OBJS =
 TARGET := mini-os
 
 # Subdirectories common to mini-os
-SUBDIRS := lib xenbus console
+#SUBDIRS := lib xenbus console
+SUBDIRS := xenbus
 
 # Drivers
 ifeq ($(XEN_TARGET_ARCH),arm32)
 src-y += drivers/gic.c
 endif
+
+
 
 # Device tree support
 src-y += lib/fdt/fdt.c
@@ -96,6 +99,7 @@ src-$(CONFIG_FBFRONT) += fbfront.c
 src-y += gntmap.c
 src-y += gnttab.c
 src-y += hypervisor.c
+src-y += time.c
 src-y += kernel.c
 src-y += lock.c
 src-y += main.c
@@ -106,7 +110,7 @@ src-y += sched.c
 src-$(CONFIG_TEST) += test.c
 
 src-y += lib/ctype.c
-src-y += lib/math.c
+#src-y += lib/math.c
 src-y += lib/printf.c
 src-y += lib/stack_chk_fail.c
 src-y += lib/string.c

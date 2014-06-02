@@ -120,22 +120,45 @@ void schedule(void)
                 break;
             }
         }
+
         if (next)
             break;
+
+        DEBUG("Can't find a runnable thread. Block for a while and try again.\n");
         /* block until the next timeout expires, or for 10 secs, whichever comes first */
         block_domain(min_wakeup_time);
         /* handle pending events if any */
         force_evtchn_callback();
     } while(1);
     local_irq_restore(flags);
+
     /* Interrupting the switch is equivalent to having the next thread
        inturrupted at the return instruction. And therefore at safe point. */
-    if(prev != next) switch_threads(prev, next);
+    DEBUG("prev ptr: %p", prev);
+    if(prev)
+    	DEBUG(", prev: %s", prev->name);
+    DEBUG("\n");
 
+    DEBUG("next ptr: %p", next);
+	if(prev)
+		DEBUG(", next: %s", next->name);
+	DEBUG("\n");
+
+    if(prev != next) {
+    	DEBUG("Switching between threads now:\n");
+    	DEBUG("\tOld thread : %s (sp:%x and ip%x)\n", prev->name, prev->sp, prev->ip);
+    	DEBUG("\tNew thread : %s (sp:%x and ip%x)\n", next->name, next->sp, next->ip);
+    	DEBUG("Before thread switch: (thread_name:%s)\n", current->name);
+    	switch_threads(prev, next);
+    	DEBUG("After thread switch: (thread_name:%s)\n", current->name);
+    }
+
+    DEBUG("Remove exited threads\n");
     MINIOS_TAILQ_FOREACH_SAFE(thread, &exited_threads, thread_list, tmp)
     {
         if(thread != prev)
         {
+        	DEBUG("Removing thread : %s\n", thread->name);
             MINIOS_TAILQ_REMOVE(&exited_threads, thread, thread_list);
             free_pages(thread->stack, STACK_SIZE_PAGE_ORDER);
             xfree(thread);
@@ -149,6 +172,9 @@ struct thread* create_thread(char *name, void (*function)(void *), void *data)
     unsigned long flags;
     /* Call architecture specific setup. */
     thread = arch_create_thread(name, function, data);
+    if(!thread)
+    	BUG(); //For now, FIXME should just return NULL
+
     /* Not runable, not exited, not sleeping */
     thread->flags = 0;
     thread->wakeup_time = 0LL;
@@ -240,10 +266,13 @@ void wake(struct thread *thread)
     set_runnable(thread);
 }
 
+void test_xenbus(void);
+
 void idle_thread_fn(void *unused)
 {
     threads_started = 1;
     while (1) {
+    	test_xenbus();
         block(current);
         schedule();
     }

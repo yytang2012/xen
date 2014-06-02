@@ -189,14 +189,18 @@ void stop_kernel(void)
 
     local_irq_disable();
 
+#if 0
     /* Reset grant tables */
     fini_gnttab();
+#endif
 
     /* Reset XenBus */
     fini_xenbus();
 
+#if 0
     /* Reset timers */
     fini_time();
+#endif
 
     /* Reset memory management. */
     fini_mm();

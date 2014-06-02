@@ -248,7 +248,8 @@ int evtchn_bind_interdomain(domid_t pal, evtchn_port_t remote_port,
 
 int evtchn_get_peercontext(evtchn_port_t local_port, char *ctx, int size)
 {
-    int rc;
+    int rc = 0;
+#if 0
     uint32_t sid;
     struct xen_flask_op op;
     op.cmd = FLASK_GET_PEER_SID;
@@ -263,6 +264,7 @@ int evtchn_get_peercontext(evtchn_port_t local_port, char *ctx, int size)
     op.u.sid_context.size = size;
     set_xen_guest_handle(op.u.sid_context.context, ctx);
     rc = _hypercall1(int, xsm_op, &op);
+#endif
     return rc;
 }
 
