@@ -38,8 +38,6 @@ int in_callback;
 
 void do_hypervisor_callback(struct pt_regs *regs)
 {
-    unsigned long  l1, l2, l1i, l2i;
-    unsigned int   port;
     int            cpu = 0;
     shared_info_t *s = HYPERVISOR_shared_info;
     vcpu_info_t   *vcpu_info = &s->vcpu_info[cpu];
@@ -47,17 +45,22 @@ void do_hypervisor_callback(struct pt_regs *regs)
     in_callback = 1;
    
     vcpu_info->evtchn_upcall_pending = 0;
+    wmb();
+
     /* NB x86. No need for a barrier here -- XCHG is a barrier on x86. */
 #if !defined(__i386__) && !defined(__x86_64__)
     /* Clear master flag /before/ clearing selector flag. */
     wmb();
 #endif
-    l1 = xchg(&vcpu_info->evtchn_pending_sel, 0);
+    /* Hack for Mirage */
+#if 0
+    l1 = vcpu_info->evtchn_pending_sel;
     while ( l1 != 0 )
     {
         l1i = __ffs(l1);
         l1 &= ~(1UL << l1i);
         
+	printk("active_evtchns[%d] : %x\n", l1i, active_evtchns(cpu, s, l1i));
         while ( (l2 = active_evtchns(cpu, s, l1i)) != 0 )
         {
             l2i = __ffs(l2);
@@ -67,6 +70,7 @@ void do_hypervisor_callback(struct pt_regs *regs)
             do_event(port, regs);
         }
     }
+#endif
 
     in_callback = 0;
 }
