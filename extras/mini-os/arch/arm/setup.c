@@ -128,14 +128,10 @@ arch_do_exit(void)
 }
 
 void dump_registers(int *saved_registers) {
+    unsigned long sp, stack_top, x;
     char *fault_name;
     void *fault_handler;
     int i;
-    printk("Fault!\n");
-    for (i = 0; i < 16; i++) {
-        printk("r%d = %x\n", i, saved_registers[i]);
-    }
-    printk("CPSR = %x\n", saved_registers[16]);
     fault_handler = (void *) saved_registers[17];
     if (fault_handler == &fault_reset)
 	fault_name = "reset";
@@ -153,4 +149,19 @@ void dump_registers(int *saved_registers) {
 	fault_name = "unknown fault type!";
 
     printk("Fault handler at %x called (%s)\n", fault_handler, fault_name);
+
+    for (i = 0; i < 16; i++) {
+        printk("r%d = %x\n", i, saved_registers[i]);
+    }
+    printk("CPSR = %x\n", saved_registers[16]);
+
+    printk("Stack dump (innermost last)\n");
+
+    sp = (unsigned long) saved_registers[13];
+    stack_top = (sp | (__STACK_SIZE-1)) + 1;
+    for (x = stack_top - 4; x >= sp; x -= 4)
+    {
+	printk("  [%8x] %8x\n", x, *((int *) x));
+    }
+    printk("End of stack\n");
 }
