@@ -180,6 +180,7 @@ void init_events(void)
 void fini_events(void)
 {
     /* Dealloc all events */
+    arch_unbind_ports();
     unbind_all_ports();
     arch_fini_events();
 }
