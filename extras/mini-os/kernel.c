@@ -119,6 +119,44 @@ __attribute__((weak)) int app_main(start_info_t *si)
     return 0;
 }
 
+void test_bitop(void)
+{
+    int i;
+    unsigned long flags[1] = {0x55aaff};
+    uint8_t *bytes = (uint8_t *) flags;
+
+    for (i = 0; i < 32; i++) {
+	printk("bit %d is %d\n", i, test_bit(i, flags));
+    }
+
+    for (i = 0; i < 32; i++) {
+	int orig = test_and_clear_bit(i, flags);
+	printk("cleared bit %d (was %d)\n", i, orig);
+	clear_bit(i, flags);
+    }
+
+    for (i = 0; i < 4; i++) {
+	printk("byte %d now %x\n", i, bytes[i]);
+    }
+
+    for (i = 1; i < 128; i++) {
+	printk("ffs(%x) = %d\n", i, __ffs(i));
+    }
+
+    long w = 0x12345678;
+    uint16_t *h = (uint16_t *) &w;
+    uint8_t *b = (uint8_t *) &w;
+
+    printk("78 = %x\n", synch_cmpxchg(b, 0x05, 0x10));
+    printk("10 = %x\n", synch_cmpxchg(b, 0x78, 0x10));
+
+    printk("5610 = %x\n", synch_cmpxchg(h, 0x05, 0x9998));
+    printk("9998 = %x\n", synch_cmpxchg(h, 0x5610, 0x9998));
+
+    printk("12349998 = %x\n", synch_cmpxchg(&w, 0x05, 0x876544321));
+    printk("876544321 = %x\n", synch_cmpxchg(&w, 0x12349998, 0x87654321));
+}
+
 void start_kernel(void)
 {
     /* Set up events. */
@@ -154,6 +192,8 @@ void start_kernel(void)
 #ifdef __arm__
     gic_init();
 #endif
+
+    test_bitop();
 
     /* Call (possibly overridden) app_main() */
     app_main(&start_info);
