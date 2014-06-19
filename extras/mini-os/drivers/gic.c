@@ -169,8 +169,8 @@ static void gic_handler(void) {
 
 void gic_init(void) {
     // FIXME Get from dt!
-    gic.gicd_base = (char *)0x2c001000ULL;
-    gic.gicc_base = (char *)0x2c002000ULL;
+    gic.gicd_base = (char *)GUEST_GICD_BASE;
+    gic.gicc_base = (char *)GUEST_GICC_BASE;
     wmb();
 
     IRQ_handler = gic_handler;
