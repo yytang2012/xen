@@ -36,6 +36,7 @@
 
 #include <xen/xen.h>
 #include <xen/sched.h>
+#include <xen/xsm/flask_op.h>
 #include <mini-os/mm.h>
 
 int
@@ -90,4 +91,8 @@ int
 HYPERVISOR_hvm_op(
     unsigned long op, void *arg);
 
-#endif
+int
+HYPERVISOR_xsm_op(
+    struct xen_flask_op *);
+
+#endif  /* __HYPERCALL_ARM_H__ */

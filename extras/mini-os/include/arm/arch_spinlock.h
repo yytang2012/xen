@@ -18,12 +18,6 @@
 #define arch_spin_is_locked(x)    (*(volatile signed char *)(&(x)->slock) <= 0)
 #define arch_spin_unlock_wait(x) do { barrier(); } while(spin_is_locked(x))
 
-/*
- * This works. Despite all the confusion.
- * (except on PPro SMP or if we are using OOSTORE)
- * (PPro errata 66, 92)
- */
-
 static inline void _raw_spin_unlock(spinlock_t *lock)
 {
     xchg(&lock->slock, 1);
@@ -40,10 +34,6 @@ static inline void _raw_spin_lock(spinlock_t *lock)
     do {
         was_locked = xchg(&lock->slock, 0) == 0 ? 1 : 0;
     } while(was_locked);
-}
-
-static inline void _raw_spin_lock_flags (spinlock_t *lock, unsigned long flags)
-{
 }
 
 #endif
