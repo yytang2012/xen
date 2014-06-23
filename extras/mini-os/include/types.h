@@ -30,22 +30,10 @@ typedef unsigned long       u_long;
 #if defined(__i386__) || defined(__arm__)
 typedef long long           quad_t;
 typedef unsigned long long  u_quad_t;
-
-typedef struct { unsigned long pte_low, pte_high; } pte_t;
-
 #elif defined(__x86_64__)
 typedef long                quad_t;
 typedef unsigned long       u_quad_t;
-
-typedef struct { unsigned long pte; } pte_t;
 #endif /* __i386__ || __x86_64__ */
-
-#if defined(__x86_64__) || defined(__aarch64__)
-#define __pte(x) ((pte_t) { (x) } )
-#else
-#define __pte(x) ({ unsigned long long _x = (x);        \
-    ((pte_t) {(unsigned long)(_x), (unsigned long)(_x>>32)}); })
-#endif
 
 #ifdef HAVE_LIBC
 #include <limits.h>
