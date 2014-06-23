@@ -21,24 +21,13 @@ extern void *device_tree;
 extern shared_info_t *HYPERVISOR_shared_info;
 
 // disable interrupts
-static inline __cli(void) {
-    int x;
-    __asm__ __volatile__("mrs %0, cpsr;cpsid i":"=r"(x)::"memory");
+static inline void local_irq_disable(void) {
+    __asm__ __volatile__("cpsid i":::"memory");
 }
 
 // enable interrupts
-static inline __sti(void) {
-    int x;
-    __asm__ __volatile__("mrs %0, cpsr\n"
-                        "bic %0, %0, #0x80\n"
-                        "msr cpsr_c, %0"
-                        :"=r"(x)::"memory");
-}
-
-static inline int irqs_disabled() {
-    int x;
-    __asm__ __volatile__("mrs %0, cpsr\n":"=r"(x)::"memory");
-    return (x & 0x80);
+static inline void local_irq_enable(void) {
+    __asm__ __volatile__("cpsie i":::"memory");
 }
 
 #define local_irq_save(x) { \
@@ -46,27 +35,27 @@ static inline int irqs_disabled() {
 }
 
 #define local_irq_restore(x) {    \
-    __asm__ __volatile__("msr cpsr_c, %0"::"r"(x):"memory");    \
+    __asm__ __volatile__("mrs r0, cpsr\n" \
+                         "bic r0, r0, #0x80\n" \
+                         "orr r0, r0, %[old]\n" \
+                         "msr cpsr_c, r0":: \
+                         [old] "r"(x): \
+                         "r0","memory");    \
 }
 
 #define local_save_flags(x)    { \
-    __asm__ __volatile__("mrs %0, cpsr; and %0, %0, 0x80":"=r"(x)::"memory");    \
+    __asm__ __volatile__("mrs %0, cpsr; and %0, %0, #0x80":"=r"(x)::"memory");    \
 }
 
-#define local_irq_disable()    __cli()
-#define local_irq_enable() __sti()
+static inline int irqs_disabled(void) {
+    int x;
+    local_save_flags(x);
+    return x;
+}
 
-#if defined(__arm__)
-#define mb() __asm__("dmb");
-#define rmb() __asm__("dmb");
-#define wmb() __asm__("dmb");
-#elif defined(__aarch64__)
-#define mb()
-#define rmb()
-#define wmb()
-#else
-#error undefined architecture
-#endif
+#define mb() __asm__("dmb":::"memory");
+#define rmb() __asm__("dmb":::"memory");
+#define wmb() __asm__("dmb":::"memory");
 
 #define unlikely(x)  __builtin_expect((x),0)
 #define likely(x)  __builtin_expect((x),1)
