@@ -36,6 +36,7 @@
 
 #include <xen/xen.h>
 #include <xen/sched.h>
+#include <xen/xsm/flask_op.h>
 #include <mini-os/mm.h>
 
 #define __STR(x) #x
@@ -325,6 +326,13 @@ HYPERVISOR_domctl(
 	unsigned long op)
 {
 	return _hypercall1(int, domctl, op);
+}
+
+static inline int
+HYPERVISOR_xsm_op(
+	struct xen_flask_op *op)
+{
+	return _hypercall1(int, xsm_op, op);
 }
 
 #endif /* __HYPERCALL_X86_64_H__ */
