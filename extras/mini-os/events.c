@@ -244,7 +244,7 @@ int evtchn_get_peercontext(evtchn_port_t local_port, char *ctx, int size)
     op.cmd = FLASK_GET_PEER_SID;
     op.interface_version = XEN_FLASK_INTERFACE_VERSION;
     op.u.peersid.evtchn = local_port;
-    rc = _hypercall1(int, xsm_op, &op);
+    rc = HYPERVISOR_xsm_op(&op);
     if (rc)
         return rc;
     sid = op.u.peersid.sid;
@@ -252,7 +252,7 @@ int evtchn_get_peercontext(evtchn_port_t local_port, char *ctx, int size)
     op.u.sid_context.sid = sid;
     op.u.sid_context.size = size;
     set_xen_guest_handle(op.u.sid_context.context, ctx);
-    rc = _hypercall1(int, xsm_op, &op);
+    rc = HYPERVISOR_xsm_op(&op);
     return rc;
 }
 
