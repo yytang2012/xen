@@ -51,7 +51,7 @@ flags-$(CONFIG_XENBUS) += -DCONFIG_XENBUS
 DEF_CFLAGS += $(flags-y)
 
 # Symlinks and headers that must be created before building the C files
-GENERATED_HEADERS := include/list.h $(ARCH_LINKS) include/mini-os include/xen include/$(TARGET_ARCH_FAM)/mini-os
+GENERATED_HEADERS := include/list.h $(ARCH_LINKS) include/mini-os include/xen include/$(TARGET_ARCH_FAM)/mini-os include/fdt.h include/libfdt.h
 
 EXTRA_DEPS += $(GENERATED_HEADERS)
 
@@ -75,7 +75,18 @@ EXTRA_OBJS =
 TARGET := mini-os
 
 # Subdirectories common to mini-os
-SUBDIRS := lib xenbus console
+SUBDIRS := lib xenbus console libfdt
+
+FDT_SRC :=
+ifeq ($(XEN_TARGET_ARCH),arm32)
+# Need libgcc.a for division helpers
+LDLIBS += `$(CC) -print-libgcc-file-name`
+
+# Device tree support
+FDT_SRC := libfdt/fdt.c libfdt/fdt_ro.c libfdt/fdt_strerror.c
+
+src-y += ${FDT_SRC}
+endif
 
 src-$(CONFIG_BLKFRONT) += blkfront.c
 src-$(CONFIG_TPMFRONT) += tpmfront.c
@@ -97,10 +108,13 @@ src-y += sched.c
 src-$(CONFIG_TEST) += test.c
 
 src-y += lib/ctype.c
+ifneq ($(XEN_TARGET_ARCH),arm32)
 src-y += lib/math.c
+endif
 src-y += lib/printf.c
 src-y += lib/stack_chk_fail.c
 src-y += lib/string.c
+src-y += lib/memmove.c
 src-y += lib/sys.c
 src-y += lib/xmalloc.c
 src-$(CONFIG_XENBUS) += lib/xs.c
@@ -124,6 +138,21 @@ ifneq ($(ARCH_LINKS),)
 $(ARCH_LINKS):
 	$(arch_links)
 endif
+
+include/fdt.h:
+	cp $(XEN_ROOT)/xen/include/xen/libfdt/fdt.h $@
+
+include/libfdt.h:
+	sed 's!xen/libfdt/!!' $(XEN_ROOT)/xen/include/xen/libfdt/libfdt.h > $@
+
+libfdt:
+	mkdir $@
+
+libfdt/libfdt_internal.h: libfdt
+	cp $(XEN_ROOT)/xen/common/libfdt/libfdt_internal.h $@
+
+libfdt/%.c: libfdt libfdt/libfdt_internal.h
+	cp $(XEN_ROOT)/xen/common/libfdt/$*.c $@
 
 include/list.h: $(XEN_ROOT)/tools/include/xen-external/bsd-sys-queue-h-seddery $(XEN_ROOT)/tools/include/xen-external/bsd-sys-queue.h
 	perl $^ --prefix=minios  >$@.new
@@ -190,7 +219,11 @@ $(OBJ_DIR)/$(TARGET): $(OBJS) $(APP_O) arch_lib
 	$(LD) -r $(LDFLAGS) $(HEAD_OBJ) $(APP_O) $(OBJS) $(LDARCHLIB) $(LDLIBS) -o $@.o
 	$(OBJCOPY) -w -G $(GLOBAL_PREFIX)* -G _start $@.o $@.o
 	$(LD) $(LDFLAGS) $(LDFLAGS_FINAL) $@.o $(EXTRA_OBJS) -o $@
+ifeq ($(XEN_TARGET_ARCH),arm32)
+	$(OBJCOPY) -O binary $@ $@.img
+else
 	gzip -f -9 -c $@ >$@.gz
+endif
 
 .PHONY: clean arch_clean
 
@@ -202,6 +235,7 @@ clean:	arch_clean
 		rm -f $$dir/*.o; \
 	done
 	rm -f include/list.h
+	rm -f ${FDT_SRC} libfdt/libfdt_internal.h
 	rm -f $(OBJ_DIR)/*.o *~ $(OBJ_DIR)/core $(OBJ_DIR)/$(TARGET).elf $(OBJ_DIR)/$(TARGET).raw $(OBJ_DIR)/$(TARGET) $(OBJ_DIR)/$(TARGET).gz
 	find . $(OBJ_DIR) -type l | xargs rm -f
 	$(RM) $(OBJ_DIR)/lwip.a $(LWO)
