@@ -50,6 +50,9 @@ extras/mini-os/include/mini-os
 extras/mini-os/include/x86/mini-os
 extras/mini-os/include/xen
 extras/mini-os/include/list.h
+extras/mini-os/include/fdt.h
+extras/mini-os/include/libfdt.h
+extras/mini-os/libfdt
 extras/mini-os/mini-os*
 install/*
 linux-[^/]*-paravirt/*
