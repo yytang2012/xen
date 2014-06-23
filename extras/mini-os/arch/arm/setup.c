@@ -71,7 +71,7 @@ void get_xenbus(void)
 /*
  * INITIAL C ENTRY POINT.
  */
-void arch_init(void *dtb_pointer, int physical_offset)
+void arch_init(void *dtb_pointer, uint32_t physical_offset)
 {
     struct xen_add_to_physmap xatp;
     int r;
