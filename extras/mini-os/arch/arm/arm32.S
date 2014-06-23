@@ -1,0 +1,266 @@
+@ Virtual address of the start of RAM (any value will do, but it must be
+@ section-aligned). Update the lds script if changed.
+#define VIRT_BASE 0x400000
+
+@ Offset of the kernel within the RAM. This is a zImage convention which we
+@ rely on.
+#define ZIMAGE_KERNEL_OFFSET 0x8000
+
+@ Desired virtual address of _start. Must match value in .lds file.
+#define VIRT_START (VIRT_BASE + ZIMAGE_KERNEL_OFFSET)
+
+.section .text
+
+.globl _start
+_start:
+	@ zImage header
+.rept   8
+        mov     r0, r0
+.endr
+        b       reset
+        .word   0x016f2818      @ Magic numbers to help the loader
+        .word   0		@ zImage start address (0 = relocatable)
+        .word   _edata - _start @ zImage end address (excludes bss section)
+	@ end of zImage header
+
+@ Called at boot time. Sets up MMU, exception vectors and stack, and then calls C arch_init() function.
+@ => r2 -> DTB
+@ <= never returns
+@ Note: this boot code needs to be within the first (1MB - ZIMAGE_KERNEL_OFFSET) of _start.
+reset:
+	@ Problem: the C code wants to be at a known address (VIRT_BASE), but Xen might
+	@ load us anywhere. We initialise the MMU (mapping virtual to physical @ addresses)
+	@ so everything ends up where the code expects it to be.
+	@
+	@ We calculate the offet between where the linker thought _start would be and where
+	@ it actually is and initialise the page tables to have that offset for every page.
+	@
+	@ When we turn on the MMU, we're still executing at the old address. We don't want
+	@ the code to disappear from under us. So we have to do the mapping in stages:
+	@
+	@ 1. set up a mapping to our current page from both its current and desired addresses
+	@ 2. enable the MMU
+	@ 3. jump to the new address
+	@ 4. remap all the other pages with the calculated offset
+
+	adr	r1, _start		@ r1 = physical address of _start
+	ldr	r3, =VIRT_START		@ r3 = (desired) virtual address of _start
+	sub 	r9, r1, r3		@ r9 = (physical - virtual) offset
+
+	ldr	r7, =page_dir		@ r7 = (desired) virtual addr of page_dir
+	add	r1, r7, r9		@ r1 = physical addr of page_dir
+
+	@ Tell the system where our page table is located.
+	mcr	p15, 0, r1, c2, c0, 0	@ set ttbr0 = r1
+
+	@ Set access permission for domains.
+	@ Domains are deprecated, but we have to configure them anyway.
+	@ We mark every page as being domain 0 and set domain 0 to "client mode"
+	@ (client mode = use access flags in page table).
+	mov	r0, #1			@ 1 = client
+	mcr	p15, 0, r0, c3, c0, 0	@ DACR
+
+	@ Template (flags) for a 1 MB page-table entry.
+	@ TEX[2:0] C B = 001 1 1 (outer and inner write-back, write-allocate)
+	ldr	r8, =(0x2 +  		/* Section entry */ \
+		      0xc +  		/* C B */ \
+		      (3 << 10) + 	/* Read/write */ \
+		      (1 << 12) +	/* TEX */ \
+		      (1 << 16) +	/* Sharable */ \
+		      (1<<19))		/* Non-secure */
+	@ r8 = template page table entry
+
+	@ Add two entries for the current physical section, at the old and new
+	@ addresses.
+	@ It's OK if they're the same. It's even OK if the new section overlaps
+	@ the physical address of the page table, since the MMU is still turned off.
+	mov	r0, pc, lsr#20
+	mov	r0, r0, lsl#20		@ r0 = physical address of this code's section start
+	orr	r3, r0, r8		@ r3 = table entry for this section
+	str	r3, [r1, #VIRT_BASE >> 18] @ map desired virtual section to this code
+	str	r3, [r1, r0, lsr#18]	@ map current section to this code too
+
+	@ Map the section containing the page table to its desired address, if possible.
+	@ We need to make sure the desired virtual section doesn't match the old address of the
+	@ code, since that needs to remain valid briefly after the MMU is turned on.
+	mov	r3, r1, lsr#20		@ r3 = physical section number containing page table
+	rsb	r4, r9, r3, lsl#20	@ r4 = desired virtual address of page table's section
+	orr	r3, r8, r3, lsl#20	@ r3 = table entry for page table
+	cmp	r4, r0			@ is r4 where we're executing from?
+	movne	r5, r4			@ use it if not
+	addeq	r5, r4, #1<<20		@ else use next section instead
+	str	r3, [r1, r5, lsr#18]	@ add section entry for page table itself
+	@ r5 = temporary virtual address of page table section
+
+	@ Invalidate TLB
+	mcr	p15, 0, r1, c8, c7, 0	@ TLBIALL
+
+	@ Enable MMU / SCTLR
+	@ We leave caches off for now because we're going to be changing the
+	@ TLB a lot and this avoids having to flush the caches each time.
+	mrc	p15, 0, r1, c1, c0, 0	@ SCTLR
+	orr	r1, r1, #0x1		@ Enable MMU
+	mcr	p15, 0, r1, c1, c0, 0	@ SCTLR
+	isb
+
+	adr	r1, stage2		@ Physical address of stage2
+	sub	r1, r1, r9		@ Virtual address of stage2
+	bx	r1
+
+@ Called once the MMU is enabled. The boot code and the page table are mapped,
+@ but nothing else is yet.
+@
+@ => r2 -> dtb (physical)
+@    r3 = page table entry for page table itself
+@    r4 = desired virtual address of page table's section
+@    r5 = temporary virtual address of page table's section
+@    r7 = desired virtual address of page table
+@    r8 = section entry template (flags)
+@    r9 = desired physical - virtual offset
+@    pc -> somewhere in newly-mapped virtual code section
+stage2:
+	@ Remap page table to its final location, now it can't clash with our
+	@ execution address.
+	sub	r5, r5,	r4		@ r5 = difference between desired and actual
+	add	r5, r5, r7		@ r5 = temporary virtual address of page_dir
+	str	r3, [r5, r4, lsr#18]	@ map page table section at desired address
+
+	@ Invalidate TLB
+	mcr	p15, 0, r1, c8, c7, 0	@ TLBIALL
+	isb
+
+	@ The new mapping has now taken effect:
+	@ r7 -> page_dir
+
+	@ Fill in the whole top-level translation table (at page_dir).
+	@ Populate the whole pagedir with 1MB section descriptors.
+
+	mov	r1, r7			@ r1 -> first section entry
+	add	r3, r1, #4*4*1024	@ limit (4 GB address space, 4 byte entries)
+	orr	r0, r8, r9		@ r0 = entry mapping section zero to start of physical RAM
+1:
+	str	r0, [r1],#4		@ write the section entry
+	add	r0, r0, #1 << 20 	@ next physical page (wraps)
+	cmp	r1, r3
+	bne	1b
+
+	@ Invalidate TLB
+	mcr	p15, 0, r1, c8, c7, 0	@ TLBIALL
+	isb
+
+	@ At this point, everything is mapped to its final location.
+	@ It's now safe to turn on caching.
+	ldr	r0, =(3 << 11) + 4	@ icache, branch prediction, dcache
+	mrc	p15, 0, r1, c1, c0, 0	@ SCTLR
+	orr	r1, r1, r0
+	mcr	p15, 0, r1, c1, c0, 0	@ SCTLR
+
+	@ Set VBAR -> exception_vector_table
+	@ SCTLR.V = 0
+	adr	r0, exception_vector_table
+	mcr	p15, 0, r0, c12, c0, 0
+
+	@ Initialise 16 KB stack
+	ldr	sp, =stack_end
+
+	@ Store virtual -> physical offset for C code
+	ldr	r0, =physical_address_offset
+	str	r9, [r0]
+
+	sub	r0, r2, r9		@ r0 -> device tree (virtual address)
+
+	b	arch_init
+
+.pushsection .data
+_data:
+.align	14
+.globl page_dir
+@ Each word maps one 1MB virtual section to a physical section
+page_dir:
+	.fill (4*1024), 4, 0x0
+
+.align 12
+.globl shared_info_page
+shared_info_page:
+	.fill (1024), 4, 0x0
+
+.align 3
+.globl stack
+stack:
+	.fill (4*1024), 4, 0x0
+stack_end:
+
+.align 3
+irqstack:
+	.fill (1024), 4, 0x0
+irqstack_end:
+
+.globl physical_address_offset
+physical_address_offset:
+	.long 	0
+
+.popsection
+
+@ exception base address
+.align 5
+.globl exception_vector_table
+@ Note: remember to call CLREX if returning from an exception:
+@ "The architecture enables the local monitor to treat any exclusive store as
+@  matching a previous LDREX address. For this reason, use of the CLREX
+@  instruction to clear an existing tag is required on context switches."
+@ -- ARM Cortex-A Series Programmer’s Guide (Version: 4.0)
+exception_vector_table:
+	b	. @ reset
+	b	. @ undefined instruction
+	b	. @ supervisor call
+	b	. @ prefetch call
+	b	. @ prefetch abort
+	b	. @ data abort
+	b	irq_handler @ irq
+	.word 0xe7f000f0    @ abort on FIQ
+
+irq_handler:
+	ldr	sp, =irqstack_end
+	push	{r0 - r12, r14}
+
+	ldr	r0, IRQ_handler
+	cmp	r0, #0
+	.word	0x07f000f0    	@ undeq - panic if no handler
+	blx	r0		@ call handler
+
+	@ Return from IRQ
+	pop	{r0 - r12, r14}
+	clrex
+	subs	pc, lr, #4
+
+.globl IRQ_handler
+IRQ_handler:
+	.long	0x0
+
+
+.globl __arch_switch_threads
+@ => r0 = &prev->sp
+@    r1 = &next->sp
+@ <= returns to next thread's saved return address
+__arch_switch_threads:
+	stmia	r0, {sp, lr}	@ Store current sp and ip to prev's struct thread
+	str	fp, [sp, #-4]	@ Store fp on the old stack
+
+	ldmia	r1, {sp, lr}	@ Load new sp, ip from next's struct thread
+	ldr	fp, [sp, #-4]	@ Restore fp from the stack
+
+	mov	pc, lr
+
+@ This is called if you try to divide by zero. For now, we make a supervisor call,
+@ which will make us halt.
+.globl raise
+raise:
+	svc	0
+
+.globl arm_start_thread
+arm_start_thread:
+	pop	{r0, r1}
+	@ r0 = user data
+	@ r1 -> thread's main function
+	ldr	lr, =exit_thread
+	bx	r1

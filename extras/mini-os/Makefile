@@ -78,6 +78,9 @@ TARGET := mini-os
 SUBDIRS := lib xenbus console
 
 ifeq ($(XEN_TARGET_ARCH),arm32)
+# Need libgcc.a for division helpers
+LDLIBS += `$(CC) -print-libgcc-file-name`
+
 # Device tree support
 SUBDIRS += lib/fdt
 src-y += lib/fdt/fdt.c
@@ -109,7 +112,9 @@ src-y += sched.c
 src-$(CONFIG_TEST) += test.c
 
 src-y += lib/ctype.c
+ifneq ($(XEN_TARGET_ARCH),arm32)
 src-y += lib/math.c
+endif
 src-y += lib/printf.c
 src-y += lib/stack_chk_fail.c
 src-y += lib/string.c
@@ -203,7 +208,11 @@ $(OBJ_DIR)/$(TARGET): $(OBJS) $(APP_O) arch_lib
 	$(LD) -r $(LDFLAGS) $(HEAD_OBJ) $(APP_O) $(OBJS) $(LDARCHLIB) $(LDLIBS) -o $@.o
 	$(OBJCOPY) -w -G $(GLOBAL_PREFIX)* -G _start $@.o $@.o
 	$(LD) $(LDFLAGS) $(LDFLAGS_FINAL) $@.o $(EXTRA_OBJS) -o $@
+ifeq ($(XEN_TARGET_ARCH),arm32)
+	$(OBJCOPY) -O binary $@ $@.img
+else
 	gzip -f -9 -c $@ >$@.gz
+endif
 
 .PHONY: clean arch_clean
 
