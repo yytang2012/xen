@@ -187,8 +187,8 @@ void gic_init(void) {
                 printk("Bad 'reg' property: %p %d\n", reg, len);
                 continue;
             }
-            gic.gicd_base = (char *) (long) fdt64_to_cpu(reg[0]);
-            gic.gicc_base = (char *) (long) fdt64_to_cpu(reg[2]);
+            gic.gicd_base = to_virt((long) fdt64_to_cpu(reg[0]));
+            gic.gicc_base = to_virt((long) fdt64_to_cpu(reg[2]));
             printk("Found GIC: gicd_base = %p, gicc_base = %p\n", gic.gicd_base, gic.gicc_base);
             break;
         }

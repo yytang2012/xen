@@ -73,12 +73,12 @@ void get_xenbus(void)
 void arch_init(void *dtb_pointer)
 {
     struct xen_add_to_physmap xatp;
+    int r;
 
     memset(&__bss_start, 0, &_end - &__bss_start);
 
     xprintk("Checking DTB at %x...\n", dtb_pointer);
 
-    int r;
     if ((r = fdt_check_header(dtb_pointer))) {
         xprintk("Invalid DTB from Xen: %s\n", fdt_strerror(r));
         BUG();
