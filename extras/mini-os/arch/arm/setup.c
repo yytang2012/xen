@@ -77,6 +77,8 @@ void arch_init(void *dtb_pointer)
 
     memset(&__bss_start, 0, &_end - &__bss_start);
 
+    xprintk("Virtual -> physical offset = %x\n", physical_address_offset);
+
     xprintk("Checking DTB at %x...\n", dtb_pointer);
 
     if ((r = fdt_check_header(dtb_pointer))) {
