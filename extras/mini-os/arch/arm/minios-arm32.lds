@@ -2,7 +2,7 @@ OUTPUT_ARCH(arm)
 ENTRY(_start)
 SECTIONS
 {
-  . = 0x408000;
+  . = 0x40008000;
   _text = .;			/* Text and read-only data */
   .text : {
 	*(.text)

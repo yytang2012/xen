@@ -1,6 +1,6 @@
 @ Virtual address of the start of RAM (any value will do, but it must be
 @ section-aligned). Update the lds script if changed.
-#define VIRT_BASE 0x400000
+#define VIRT_BASE 0x40000000
 
 @ Offset of the kernel within the RAM. This is a zImage convention which we
 @ rely on.
@@ -77,7 +77,8 @@ reset:
 	mov	r0, pc, lsr#20
 	mov	r0, r0, lsl#20		@ r0 = physical address of this code's section start
 	orr	r3, r0, r8		@ r3 = table entry for this section
-	str	r3, [r1, #VIRT_BASE >> 18] @ map desired virtual section to this code
+	mov     r14, #VIRT_BASE >> 18
+	str	r3, [r1, r14] @ map desired virtual section to this code
 	str	r3, [r1, r0, lsr#18]	@ map current section to this code too
 
 	@ Map the section containing the page table to its desired address, if possible.
