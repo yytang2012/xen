@@ -7,11 +7,7 @@
 #ifndef _OS_H_
 #define _OS_H_
 
-#if __GNUC__ == 2 && __GNUC_MINOR__ < 96
-#define __builtin_expect(x, expected_value) (x)
-#endif
-#define unlikely(x)  __builtin_expect((x),0)
-#define likely(x)  __builtin_expect((x),1)
+#include <mini-os/compiler.h>
 
 #define smp_processor_id() 0
 
