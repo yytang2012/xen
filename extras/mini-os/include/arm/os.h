@@ -6,6 +6,7 @@
 #include <mini-os/hypervisor.h>
 #include <mini-os/types.h>
 #include <mini-os/compiler.h>
+#include <mini-os/kernel.h>
 #include <xen/xen.h>
 
 void arch_fini(void);
