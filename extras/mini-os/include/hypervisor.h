@@ -36,6 +36,20 @@ union start_info_union
 extern union start_info_union start_info_union;
 #define start_info (start_info_union.start_info)
 
+/*
+ * In EVENT_MODE_INTERRUPTS, we respond to interrupts by clearing
+ * evtchn_upcall_pending and then calling do_event for each active channel, all
+ * within the interrupt handler.
+ *
+ * In EVENT_MODE_POLLING, we only clear evtchn_upcall_pending. The application
+ * should check for pending events when it's ready to handle them (e.g.
+ * whenever it's about to block).
+ */
+#define EVENT_MODE_INTERRUPTS 1
+#define EVENT_MODE_POLLING 2
+
+extern int minios_event_handling_mode;
+
 /* hypervisor.c */
 void force_evtchn_callback(void);
 void do_hypervisor_callback(struct pt_regs *regs);
