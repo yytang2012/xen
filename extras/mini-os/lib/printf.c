@@ -269,8 +269,10 @@ static char * number(char * buf, char * end, long long num, int base, int size, 
 *
 * Call this function if you are already dealing with a va_list.
 * You probably want snprintf instead.
+*
+* Override if you want a proper implementation (e.g. with %f support).
  */
-int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
+__attribute__((weak)) int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
 {
     int len;
     unsigned long long num;
@@ -556,7 +558,7 @@ int sprintf(char * buf, const char *fmt, ...)
  * @fmt:	format of buffer
  * @args:	arguments
  */
-int vsscanf(const char * buf, const char * fmt, va_list args)
+__attribute__((weak)) int vsscanf(const char * buf, const char * fmt, va_list args)
 {
 	const char *str = buf;
 	char *next;
