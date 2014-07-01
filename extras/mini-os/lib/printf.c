@@ -47,6 +47,43 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+/*-
+ * Copyright (c) 1990, 1993
+ *	The Regents of the University of California.  All rights reserved.
+ *
+ * This code is derived from software contributed to Berkeley by
+ * Chris Torek.
+ *
+ * Copyright (c) 2011 The FreeBSD Foundation
+ * All rights reserved.
+ * Portions of this software were developed by David Chisnall
+ * under sponsorship from the FreeBSD Foundation.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
 #if !defined HAVE_LIBC
 
 #include <mini-os/os.h>
@@ -260,6 +297,307 @@ static char * number(char * buf, char * end, long long num, int base, int size, 
     return buf;
 }
 
+typedef union {                     /* floating point arguments %[aAeEfFgG] */
+    double dbl;
+    long double ldbl;
+} fparg;
+
+/*
+ * MAXEXPDIG is the maximum number of decimal digits needed to store a
+ * floating point exponent in the largest supported format.  It should
+ * be ceil(log10(LDBL_MAX_10_EXP)) or, if hexadecimal floating point
+ * conversions are supported, ceil(log10(LDBL_MAX_EXP)).  But since it
+ * is presently never greater than 5 in practice, we fudge it.
+ */
+#define MAXEXPDIG 6
+#if LDBL_MAX_EXP > 999999
+#error "floating point buffers too small"
+#endif
+
+#define DEFPREC 6
+
+
+static char *buf_pad(char *buf, char *end, int howmany, char with)
+{
+    while (howmany > 0) {
+        if (buf <= end)
+            *buf = with;
+        ++buf;
+        --howmany;
+    }
+    return buf;
+}
+
+static char *buf_print(char *buf, char *end, char *src, int len)
+{
+    while (len > 0) {
+        if (buf <= end)
+            *buf = *src;
+        ++buf;
+        ++src;
+        --len;
+    }
+    return buf;
+}
+
+static char *buf_print_and_pad(char *buf, char *end, char *src, char *endsrc, int howmany, char with)
+{
+    while (src < endsrc) {
+        if (buf <= end)
+            *buf = *src;
+        ++buf;
+        ++src;
+        --howmany;
+    }
+    return buf_pad(buf, end, howmany, with);
+}
+
+static char *__hldtoa(long double val, char *xdigs, int prec, int *expt, int *signflag, char **dtoaend)
+{
+}
+
+/** sprintf_format_float - format a double into a buffer (used by vsnprintf)
+ * @buf: Buffer for result
+ * @end: The last available char (at the end of buf)
+ * @num: The number to format
+ * @ch: The printf specifier [eEfFgGaA]
+ * @width: The field width (i.e. the minimum width; add padding as necessary)
+ * @precision: meaning depends on fmt
+ * @type: Flags (ZEROPAD, etc)
+ *
+ * Based on FreeBSD 10's vfprintf.c.
+ */
+static char *format_float(char *buf, char *end, fparg fparg, char qualifier, char ch, int width, int prec, int flags)
+{
+    /*
+     * We can decompose the printed representation of floating
+     * point numbers into several parts, some of which may be empty:
+     *
+     * [+|-| ] [0x|0X] MMM . NNN [e|E|p|P] [+|-] ZZ
+     *    A       B     ---C---      D       E   F
+     *
+     * A:     'sign' holds this value if present; '\0' otherwise
+     * B:     ox[1] holds the 'x' or 'X'; '\0' if not hexadecimal
+     * C:     cp points to the string MMMNNN.  Leading and trailing
+     *        zeros are not in the string and must be added.
+     * D:     expchar holds this character; '\0' if no exponent, e.g. %f
+     * F:     at least two digits for decimal, at least one digit for hex
+     */
+    char *cp;                   /* handy char pointer (short term usage) */
+    char *decimal_point = ".";  /* locale specific decimal point */
+    int decpt_len = 1;          /* length of decimal_point */
+    int signflag;               /* true if float is negative */
+    int expt;                   /* integer value of exponent */
+    char expchar;               /* exponent character: [eEpP\0] */
+    char *dtoaend;              /* pointer to end of converted digits */
+    int expsize;                /* character count for expstr */
+    int ndig;                   /* actual number of digits returned by dtoa */
+    char expstr[MAXEXPDIG+2];   /* buffer for exponent string: e+ZZZ */
+    char *dtoaresult;           /* buffer allocated by dtoa */
+    const char *xdigs;          /* digits for %[xX] conversion */
+    static const char xdigs_lower[16] = "0123456789abcdef";
+    static const char xdigs_upper[16] = "0123456789ABCDEF";
+    char ox[2] = {"0\0"};     /* space for 0x; ox[1] is either x, X, or \0 */
+
+#define PAD(howmany, with) (buf = buf_pad(buf, end, (howmany), (with)))
+#define PRINT(ptr, len) (buf = buf_print(buf, end, (ptr), (len)))
+#define PRINTANDPAD(p, ep, len, with) (buf = buf_print_and_pad(buf, end, (p), (ep), (len), (with)))
+
+    switch (ch) {
+        case 'a':
+        case 'A':
+            if (ch == 'a') {
+                ox[1] = 'x';
+                xdigs = xdigs_lower;
+                expchar = 'p';
+            } else {
+                ox[1] = 'X';
+                xdigs = xdigs_upper;
+                expchar = 'P';
+            }
+            if (prec >= 0)
+                prec++;
+            if (qualifier == 'L') {
+                dtoaresult = cp =
+                    __hldtoa(fparg.ldbl, xdigs, prec,
+                            &expt, &signflag, &dtoaend);
+            } else {
+                dtoaresult = cp =
+                    __hdtoa(fparg.dbl, xdigs, prec,
+                            &expt, &signflag, &dtoaend);
+            }
+            if (prec < 0)
+                prec = dtoaend - cp;
+            if (expt == INT_MAX)
+                ox[1] = '\0';
+            goto fp_common;
+        case 'e':
+        case 'E':
+            expchar = ch;
+            if (prec < 0)       /* account for digit before decpt */
+                prec = DEFPREC + 1;
+            else
+                prec++;
+            goto fp_begin;
+        case 'f':
+        case 'F':
+            expchar = '\0';
+            goto fp_begin;
+        case 'g':
+        case 'G':
+            expchar = ch - ('g' - 'e');
+            if (prec == 0)
+                prec = 1;
+fp_begin:
+            if (prec < 0)
+                prec = DEFPREC;
+
+            if (type == 'L') {
+                dtoaresult = cp =
+                    __ldtoa(&fparg.ldbl, expchar ? 2 : 3, prec,
+                            &expt, &signflag, &dtoaend);
+            } else {
+                dtoaresult = cp =
+                    dtoa(fparg.dbl, expchar ? 2 : 3, prec,
+                            &expt, &signflag, &dtoaend);
+                if (expt == 9999)
+                    expt = INT_MAX;
+            }
+fp_common:
+            if (signflag)
+                sign = '-';
+            if (expt == INT_MAX) {          /* inf or nan */
+                if (*cp == 'N') {
+                    cp = (ch >= 'a') ? "nan" : "NAN";
+                    sign = '\0';
+                } else
+                    cp = (ch >= 'a') ? "inf" : "INF";
+                size = 3;
+                flags &= ~ZEROPAD;
+                break;
+            }
+            //flags |= FPT;
+            ndig = dtoaend - cp;
+            if (ch == 'g' || ch == 'G') {
+                if (expt > -4 && expt <= prec) {
+                    /* Make %[gG] smell like %[fF] */
+                    expchar = '\0';
+                    if (flags & SPECIAL)
+                        prec -= expt;
+                    else
+                        prec = ndig - expt;
+                    if (prec < 0)
+                        prec = 0;
+                } else {
+                    /*
+                     * Make %[gG] smell like %[eE], but
+                     * trim trailing zeroes if no # flag.
+                     */
+                    if (!(flags & SPECIAL))
+                        prec = ndig;
+                }
+            }
+            if (expchar) {
+                expsize = exponent(expstr, expt - 1, expchar);
+                size = expsize + prec;
+                if (prec > 1 || flags & SPECIAL)
+                    size += decpt_len;
+            } else {
+                /* space for digits before decimal point */
+                if (expt > 0)
+                    size = expt;
+                else            /* "0" */
+                    size = 1;
+                /* space for decimal pt and following digits */
+                if (prec || flags & SPECIAL)
+                    size += prec + decpt_len;
+                if ((flags & GROUPING) && expt > 0)
+                    size += grouping_init(&gs, expt, locale);
+            }
+    }
+
+    /*
+     * All reasonable formats wind up here.  At this point, `cp'
+     * points to a string which (if not flags&LEFT) should be
+     * padded out to `width' places.  If flags&ZEROPAD, it should
+     * first be prefixed by any sign or other prefix; otherwise,
+     * it should be blank padded before the prefix is emitted.
+     * After any left-hand padding and prefixing, emit zeroes
+     * required by a decimal [diouxX] precision, then print the
+     * string proper, then emit zeroes required by any leftover
+     * floating precision; finally, if LEFT, pad with blanks.
+     *
+     * Compute actual size, so we know how much to pad.
+     * size excludes decimal prec; realsz includes it.
+     */
+    realsz = dprec > size ? dprec : size;
+    if (sign)
+        realsz++;
+    if (ox[1])
+        realsz += 2;
+
+    prsize = width > realsz ? width : realsz;
+#if 0
+    if ((unsigned)ret + prsize > INT_MAX) {
+        ret = EOF;
+        errno = EOVERFLOW;
+        goto error;
+    }
+#endif
+
+    /* right-adjusting blank padding */
+    if ((flags & (LEFT|ZEROPAD)) == 0) {
+        PAD(width - realsz, ' ');
+    }
+
+    /* prefix */
+    if (sign)
+        PRINT(&sign, 1);
+
+    if (ox[1]) {            /* ox[1] is either x, X, or \0 */
+        ox[0] = '0';
+        PRINT(ox, 2);
+    }
+
+    /* right-adjusting zero padding */
+    if ((flags & (LEFT|ZEROPAD)) == ZEROPAD)
+        PAD(width - realsz, '0');
+
+    /* glue together f_p fragments */
+    if (!expchar) {     /* %[fF] or sufficiently short %[gG] */
+        if (expt <= 0) {
+            PRINT(zeroes, 1);
+            if (prec || flags & SPECIAL)
+                PRINT(decimal_point,decpt_len);
+            PAD(-expt, '0');
+            /* already handled initial 0's */
+            prec += expt;
+        } else {
+            PRINTANDPAD(cp, dtoaend,
+                    expt, zeroes);
+            cp += expt;
+            if (prec || flags & SPECIAL)
+                PRINT(decimal_point,decpt_len);
+        }
+        PRINTANDPAD(cp, dtoaend, prec, zeroes);
+    } else {    /* %[eE] or sufficiently long %[gG] */
+        if (prec > 1 || flags & SPECIAL) {
+            PRINT(cp++, 1);
+            PRINT(decimal_point, decpt_len);
+            PRINT(cp, ndig-1);
+            PAD(prec - ndig, '0');
+        } else  /* XeYYY */
+            PRINT(cp, 1);
+        PRINT(expstr, expsize);
+    }
+#endif
+    /* left-adjusting padding (always blank) */
+    if (flags & LEFT)
+        PAD(width - realsz, ' ');
+
+    return buf;
+}
+
 /**
 * vsnprintf - Format a string and place it in a buffer
 * @buf: The buffer to place the result into
@@ -277,6 +615,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
     int i, base;
     char *str, *end, c;
     const char *s;
+    long double d;
 
     int flags;          /* flags to number() */
 
@@ -454,6 +793,19 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
             flags |= SIGN;
         case 'u':
             break;
+    
+        case 'e':
+        case 'E':
+        case 'f':
+        case 'F':
+        case 'g':
+        case 'G':
+        case 'a':
+        case 'A':
+            BUG_ON(qualifier == 'L');   /* Long doubles not supported */
+            d = va_arg(args, double);
+            str = format_float(str, end, d, *fmt, qualifier, field_width, precision, flags);
+            continue;
 
         default:
             if (str <= end)
