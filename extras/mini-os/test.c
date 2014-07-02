@@ -51,6 +51,17 @@ static unsigned int shutdown_reason;
 static DECLARE_WAIT_QUEUE_HEAD(shutdown_queue);
 #endif
 
+static void foo(char *fmt, ...) { }
+
+static void float_tester(void *p)
+{
+    printk("Running tests...\n");
+    foo("%d", 3);
+    printk("Pass int.\n");
+    foo("%f", 3.1);
+    printk("Pass float.\n");
+}
+
 #ifdef CONFIG_XENBUS
 void test_xenbus(void);
 
@@ -540,6 +551,10 @@ static void shutdown_thread(void *p)
 int app_main(start_info_t *si)
 {
     printk("Test main: start_info=%p\n", si);
+    float_tester(NULL);
+    printk("Starting float_thread...\n");
+    create_thread("float", float_tester, NULL);
+    if (0) {
 #ifdef CONFIG_XENBUS
     create_thread("xenbus_tester", xenbus_tester, si);
 #endif
@@ -560,5 +575,6 @@ int app_main(start_info_t *si)
 #ifdef CONFIG_XENBUS
     create_thread("shutdown", shutdown_thread, si);
 #endif
+    }
     return 0;
 }
