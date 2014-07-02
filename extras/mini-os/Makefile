@@ -51,7 +51,7 @@ flags-$(CONFIG_XENBUS) += -DCONFIG_XENBUS
 DEF_CFLAGS += $(flags-y)
 
 # Symlinks and headers that must be created before building the C files
-GENERATED_HEADERS := include/list.h $(ARCH_LINKS) include/mini-os include/xen $(TARGET_ARCH_DIR)/include/mini-os
+GENERATED_HEADERS := $(ARCH_LINKS) include/mini-os include/xen $(TARGET_ARCH_DIR)/include/mini-os
 
 EXTRA_DEPS += $(GENERATED_HEADERS)
 
