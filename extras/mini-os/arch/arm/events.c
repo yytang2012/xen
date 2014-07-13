@@ -1,6 +1,7 @@
 #include <mini-os/os.h>
 #include <mini-os/events.h>
 #include <mini-os/hypervisor.h>
+#include <mini-os/console.h>
 
 static void virq_debug(evtchn_port_t port, struct pt_regs *regs, void *params)
 {

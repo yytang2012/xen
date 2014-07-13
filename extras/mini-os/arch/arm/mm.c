@@ -1,9 +1,11 @@
-#include <console.h>
+#include <mini-os/console.h>
 #include <xen/memory.h>
 #include <arch_mm.h>
 #include <mini-os/hypervisor.h>
 #include <libfdt.h>
 #include <lib.h>
+
+int physical_address_offset;
 
 unsigned long allocate_ondemand(unsigned long n, unsigned long alignment)
 {
@@ -21,7 +23,7 @@ void arch_init_mm(unsigned long *start_pfn_p, unsigned long *max_pfn_p)
     printk("    _etext: %p(VA)\n", &_etext);
     printk("    _erodata: %p(VA)\n", &_erodata);
     printk("    _edata: %p(VA)\n", &_edata);
-    printk("    stack start: %p(VA)\n", stack);
+    printk("    stack start: %p(VA)\n", _boot_stack);
     printk("    _end: %p(VA)\n", &_end);
 
     if (fdt_num_mem_rsv(device_tree) != 0)
@@ -36,14 +38,16 @@ void arch_init_mm(unsigned long *start_pfn_p, unsigned long *max_pfn_p)
     /* Xen will always provide us at least one bank of memory.
      * Mini-OS will use the first bank for the time-being. */
     regs = fdt_getprop(device_tree, memory, "reg", &prop_len);
-    if (regs == NULL || prop_len != 16) {
-        /* TODO: support other formats */
+
+    /* The property must contain at least the start address
+     * and size, each of which is 8-bytes. */
+    if (regs == NULL || prop_len < 16) {
         printk("Bad 'reg' property: %p %d\n", regs, prop_len);
         BUG();
     }
 
     unsigned int end = (unsigned int) &_end;
-    unsigned int mem_base = fdt64_to_cpu(regs[0]);
+    paddr_t mem_base = fdt64_to_cpu(regs[0]);
     unsigned int mem_size = fdt64_to_cpu(regs[1]);
     printk("Found memory at %p (len 0x%x)\n", mem_base, mem_size);
 
@@ -75,19 +79,19 @@ void arch_init_demand_mapping_area(unsigned long cur_pfn)
 }
 
 /* Get Xen's suggested physical page assignments for the grant table. */
-static unsigned long get_gnttab_base(void)
+static paddr_t get_gnttab_base(void)
 {
     int hypervisor;
     int len = 0;
     const uint64_t *regs;
-    unsigned int gnttab_base;
+    paddr_t gnttab_base;
 
     hypervisor = fdt_node_offset_by_compatible(device_tree, -1, "xen,xen");
     BUG_ON(hypervisor < 0);
 
     regs = fdt_getprop(device_tree, hypervisor, "reg", &len);
-    if (regs == NULL || len != 16) {
-        /* TODO: support other formats */
+    /* The property contains the address and size, 8-bytes each. */
+    if (regs == NULL || len < 16) {
         printk("Bad 'reg' property: %p %d\n", regs, len);
         BUG();
     }
@@ -104,7 +108,7 @@ grant_entry_t *arch_init_gnttab(int nr_grant_frames)
     struct xen_add_to_physmap xatp;
     struct gnttab_setup_table setup;
     xen_pfn_t frames[nr_grant_frames];
-    unsigned long gnttab_table;
+    paddr_t gnttab_table;
     int i, rc;
 
     gnttab_table = get_gnttab_base();

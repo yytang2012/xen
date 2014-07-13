@@ -30,18 +30,7 @@
  * IN THE SOFTWARE.
  */
 
-#define __HYPERVISOR_memory_op            12
-#define __HYPERVISOR_xen_version          17
-#define __HYPERVISOR_console_io           18
-#define __HYPERVISOR_grant_table_op       20
-#define __HYPERVISOR_vcpu_op              24
-#define __HYPERVISOR_xsm_op               27
-#define __HYPERVISOR_sched_op             29
-#define __HYPERVISOR_event_channel_op     32
-#define __HYPERVISOR_physdev_op           33
-#define __HYPERVISOR_hvm_op               34
-#define __HYPERVISOR_sysctl               35
-#define __HYPERVISOR_domctl               36
+#include <xen/xen.h>
 
 #define __HVC(imm16) .long ((0xE1400070 | (((imm16) & 0xFFF0) << 4) | ((imm16) & 0x000F)) & 0xFFFFFFFF)
 

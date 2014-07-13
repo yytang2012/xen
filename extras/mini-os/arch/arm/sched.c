@@ -1,5 +1,6 @@
 #include <mini-os/sched.h>
 #include <mini-os/xmalloc.h>
+#include <mini-os/console.h>
 
 void arm_start_thread(void);
 

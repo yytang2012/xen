@@ -1,6 +1,7 @@
 #include <mini-os/os.h>
 #include <mini-os/kernel.h>
 #include <mini-os/gic.h>
+#include <mini-os/console.h>
 #include <xen/xen.h>
 #include <xen/memory.h>
 #include <xen/hvm/params.h>
@@ -70,12 +71,14 @@ void get_xenbus(void)
 /*
  * INITIAL C ENTRY POINT.
  */
-void arch_init(void *dtb_pointer)
+void arch_init(void *dtb_pointer, int physical_offset)
 {
     struct xen_add_to_physmap xatp;
     int r;
 
     memset(&__bss_start, 0, &_end - &__bss_start);
+
+    physical_address_offset = physical_offset;
 
     xprintk("Virtual -> physical offset = %x\n", physical_address_offset);
 

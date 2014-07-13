@@ -2,12 +2,13 @@
 
 #include <mini-os/os.h>
 #include <mini-os/hypervisor.h>
+#include <mini-os/console.h>
 #include <libfdt.h>
 
 //#define VGIC_DEBUG
 #ifdef VGIC_DEBUG
 #define DEBUG(_f, _a...) \
-    DEBUG("MINI_OS(file=vgic.c, line=%d) " _f , __LINE__, ## _a)
+    printk("MINI_OS(file=vgic.c, line=%d) " _f , __LINE__, ## _a)
 #else
 #define DEBUG(_f, _a...)    ((void)0)
 #endif
@@ -184,18 +185,22 @@ void gic_init(void) {
             int len = 0;
 
             if (fdt_node_check_compatible(device_tree, node, "arm,cortex-a15-gic") &&
-                fdt_node_check_compatible(device_tree, node, "arm,cortex-a9-gic") &&
                 fdt_node_check_compatible(device_tree, node, "arm,cortex-a7-gic")) {
                 printk("Skipping incompatible interrupt-controller node\n");
                 continue;
             }
 
             const uint64_t *reg = fdt_getprop(device_tree, node, "reg", &len);
-            if (reg == NULL || len != 32) {
-                /* TODO: support other formats */
+
+            /* We have two registers (GICC and GICD), each of which contains
+             * two parts (an address and a size), each of which is a 64-bit
+             * value (8 bytes), so we expect a length of 2 * 2 * 8 = 32.
+             * If any extra values are passed in future, we ignore them. */
+            if (reg == NULL || len < 32) {
                 printk("Bad 'reg' property: %p %d\n", reg, len);
                 continue;
             }
+
             gic.gicd_base = to_virt((long) fdt64_to_cpu(reg[0]));
             gic.gicc_base = to_virt((long) fdt64_to_cpu(reg[2]));
             printk("Found GIC: gicd_base = %p, gicc_base = %p\n", gic.gicd_base, gic.gicc_base);
@@ -207,6 +212,11 @@ void gic_init(void) {
         BUG();
     }
     wmb();
+
+    /* Note: we could mark this as "device" memory here, but Xen will have already
+     * set it that way in the second stage translation table, so it's not necessary.
+     * See "Overlaying the memory type attribute" in the Architecture Reference Manual.
+     */
 
     IRQ_handler = gic_handler;
 

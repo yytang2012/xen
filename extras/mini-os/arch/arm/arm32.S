@@ -1,13 +1,6 @@
-@ Virtual address of the start of RAM (any value will do, but it must be
-@ section-aligned). Update the lds script if changed.
-#define VIRT_BASE 0x400000
-
-@ Offset of the kernel within the RAM. This is a zImage convention which we
-@ rely on.
+@ Offset of the kernel within the RAM. This is a Linux/zImage convention which we
+@ rely on for now.
 #define ZIMAGE_KERNEL_OFFSET 0x8000
-
-@ Desired virtual address of _start. Must match value in .lds file.
-#define VIRT_START (VIRT_BASE + ZIMAGE_KERNEL_OFFSET)
 
 .section .text
 
@@ -28,7 +21,7 @@ _start:
 @ <= never returns
 @ Note: this boot code needs to be within the first (1MB - ZIMAGE_KERNEL_OFFSET) of _start.
 reset:
-	@ Problem: the C code wants to be at a known address (VIRT_BASE), but Xen might
+	@ Problem: the C code wants to be at a known address (_start), but Xen might
 	@ load us anywhere. We initialise the MMU (mapping virtual to physical @ addresses)
 	@ so everything ends up where the code expects it to be.
 	@
@@ -44,13 +37,15 @@ reset:
 	@ 4. remap all the other pages with the calculated offset
 
 	adr	r1, _start		@ r1 = physical address of _start
-	ldr	r3, =VIRT_START		@ r3 = (desired) virtual address of _start
+	ldr	r3, =_start		@ r3 = (desired) virtual address of _start
 	sub 	r9, r1, r3		@ r9 = (physical - virtual) offset
 
-	ldr	r7, =page_dir		@ r7 = (desired) virtual addr of page_dir
-	add	r1, r7, r9		@ r1 = physical addr of page_dir
+	ldr	r7, =_page_dir		@ r7 = (desired) virtual addr of translation table
+	add	r1, r7, r9		@ r1 = physical addr of translation table
 
 	@ Tell the system where our page table is located.
+	@ This is the 16 KB top-level translation table, in which
+	@ each word maps one 1MB virtual section to a physical section.
 	mcr	p15, 0, r1, c2, c0, 0	@ set ttbr0 = r1
 
 	@ Set access permission for domains.
@@ -70,27 +65,14 @@ reset:
 		      (1<<19))		/* Non-secure */
 	@ r8 = template page table entry
 
-	@ Add two entries for the current physical section, at the old and new
-	@ addresses.
-	@ It's OK if they're the same. It's even OK if the new section overlaps
-	@ the physical address of the page table, since the MMU is still turned off.
+	@ Add an entry for the current physical section, at the old and new
+	@ addresses. It's OK if they're the same.
 	mov	r0, pc, lsr#20
 	mov	r0, r0, lsl#20		@ r0 = physical address of this code's section start
 	orr	r3, r0, r8		@ r3 = table entry for this section
-	str	r3, [r1, #VIRT_BASE >> 18] @ map desired virtual section to this code
+	ldr	r4, =_start		@ r4 = desired virtual address of this section
+	str	r3, [r1, r4, lsr#18] 	@ map desired virtual section to this code
 	str	r3, [r1, r0, lsr#18]	@ map current section to this code too
-
-	@ Map the section containing the page table to its desired address, if possible.
-	@ We need to make sure the desired virtual section doesn't match the old address of the
-	@ code, since that needs to remain valid briefly after the MMU is turned on.
-	mov	r3, r1, lsr#20		@ r3 = physical section number containing page table
-	rsb	r4, r9, r3, lsl#20	@ r4 = desired virtual address of page table's section
-	orr	r3, r8, r3, lsl#20	@ r3 = table entry for page table
-	cmp	r4, r0			@ is r4 where we're executing from?
-	movne	r5, r4			@ use it if not
-	addeq	r5, r4, #1<<20		@ else use next section instead
-	str	r3, [r1, r5, lsr#18]	@ add section entry for page table itself
-	@ r5 = temporary virtual address of page table section
 
 	@ Invalidate TLB
 	mcr	p15, 0, r1, c8, c7, 0	@ TLBIALL
@@ -111,20 +93,11 @@ reset:
 @ but nothing else is yet.
 @
 @ => r2 -> dtb (physical)
-@    r3 = page table entry for page table itself
-@    r4 = desired virtual address of page table's section
-@    r5 = temporary virtual address of page table's section
-@    r7 = desired virtual address of page table
+@    r7 = virtual address of page table
 @    r8 = section entry template (flags)
 @    r9 = desired physical - virtual offset
 @    pc -> somewhere in newly-mapped virtual code section
 stage2:
-	@ Remap page table to its final location, now it can't clash with our
-	@ execution address.
-	sub	r5, r5,	r4		@ r5 = difference between desired and actual
-	add	r5, r5, r7		@ r5 = temporary virtual address of page_dir
-	str	r3, [r5, r4, lsr#18]	@ map page table section at desired address
-
 	@ Invalidate TLB
 	mcr	p15, 0, r1, c8, c7, 0	@ TLBIALL
 	isb
@@ -160,36 +133,31 @@ stage2:
 	adr	r0, exception_vector_table
 	mcr	p15, 0, r0, c12, c0, 0
 
-	@ Initialise 16 KB stack
-	ldr	sp, =stack_end
+	@ Enable hardware floating point:
+	@ 1. Access to CP10 and CP11 must be enabled in the Coprocessor Access
+	@    Control Register (CP15.CACR):
+	mrc	p15, 0, r1, c1, c0, 2		@ CACR
+	orr	r1, r1, #(3 << 20) + (3 << 22)	@ full access for CP10 & CP11
+	mcr	p15, 0, r1, c1, c0, 2
+	@ 2. The EN bit in the FPEXC register must be set:
+	vmrs	r0, FPEXC
+	orr	r0, r0, #1<<30		@ EN (enable)
+	vmsr	FPEXC, r0
 
-	@ Store virtual -> physical offset for C code
-	ldr	r0, =physical_address_offset
-	str	r9, [r0]
+	@ Initialise 16 KB stack
+	ldr	sp, =_boot_stack_end
 
 	sub	r0, r2, r9		@ r0 -> device tree (virtual address)
+	mov	r1, r9			@ r1 = physical_address_offset
 
 	b	arch_init
 
-.pushsection .data
-_data:
-.align	14
-.globl page_dir
-@ Each word maps one 1MB virtual section to a physical section
-page_dir:
-	.fill (4*1024), 4, 0x0
-
+.pushsection .bss
+@ Note: calling arch_init zeroes out this region.
 .align 12
 .globl shared_info_page
 shared_info_page:
 	.fill (1024), 4, 0x0
-
-.align 3
-.globl stack
-.globl stack_end
-stack:
-	.fill (4*1024), 4, 0x0
-stack_end:
 
 .align 3
 .globl irqstack
@@ -197,10 +165,6 @@ stack_end:
 irqstack:
 	.fill (1024), 4, 0x0
 irqstack_end:
-
-.globl physical_address_offset
-physical_address_offset:
-	.long 	0
 
 fault_dump:
 	.fill 18, 4, 0x0		@ On fault, we save the registers + CPSR + handler address
@@ -243,11 +207,9 @@ fault:
 
 	@ Call C code to format the register dump.
 	@ Clobbers the stack, but we're not going to return anyway.
-	ldr	r13, =stack_end
+	ldr	sp, =_boot_stack_end
 	bl	dump_registers
-1:
-	wfi
-	b	1b
+	b	do_exit
 
 @ We want to store a unique value to identify this handler, without corrupting
 @ any of the registers. So, we store r15 (which will point just after the branch).

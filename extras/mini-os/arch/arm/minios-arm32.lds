@@ -2,7 +2,10 @@ OUTPUT_ARCH(arm)
 ENTRY(_start)
 SECTIONS
 {
-  . = 0x408000;
+  _boot_stack 	 = 0x400000;	/* 16 KB boot stack */
+  _boot_stack_end = 0x404000;
+  _page_dir      = 0x404000;	/* 16 KB translation table */
+  .		 = 0x408000;
   _text = .;			/* Text and read-only data */
   .text : {
 	*(.text)
@@ -46,12 +49,13 @@ SECTIONS
 	*(.data)
 	}
 
-  _edata = .;			/* End of data section */
+  /* Note: linker will insert any extra sections here, just before .bss */
 
-  /* Nothing after here is included in the zImage's size */
-
-  __bss_start = .;		/* BSS */
   .bss : {
+	_edata = .;			/* End of data included in image */
+	/* Nothing after here is included in the zImage's size */
+
+	__bss_start = .;
 	*(.bss)
         *(.app.bss)
 	}
