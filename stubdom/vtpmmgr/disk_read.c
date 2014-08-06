@@ -538,7 +538,7 @@ int vtpm_load_disk(void)
 	printk(" root seal: %lu; sector of %d: %lu\n",
 		sizeof(struct disk_root_sealed_data), SEALS_PER_ROOT_SEAL_LIST, sizeof(struct disk_seal_list));
 	printk(" root: %lu v=%lu\n", sizeof(root1), sizeof(root1.v));
-	printk(" itree: %lu; sector of %d: %lu\n",
+	printk(" itree: %u; sector of %d: %lu\n",
 		4 + 32, NR_ENTRIES_PER_ITREE, sizeof(struct disk_itree_sector));
 	printk(" group: %lu v=%lu id=%lu md=%lu\n",
 		sizeof(struct disk_group_sector), sizeof(struct disk_group_sector_mac3_area),
