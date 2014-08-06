@@ -561,9 +561,9 @@ static __inline__ int synch_var_test_bit(int nr, volatile void * addr)
 
 static inline int
 HYPERVISOR_xsm_op(
-	struct xen_flask_op *op)
+        struct xen_flask_op *op)
 {
-	return _hypercall1(int, xsm_op, op);
+    return _hypercall1(int, xsm_op, op);
 }
 
 #undef ADDR

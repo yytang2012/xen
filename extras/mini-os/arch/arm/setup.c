@@ -51,7 +51,7 @@ static void get_console(void)
     start_info.console.domU.mfn = v;
 
     printk("Console is on port %d\n", start_info.console.domU.evtchn);
-    printk("Console ring is at mfn %x\n", start_info.console.domU.mfn);
+    printk("Console ring is at mfn %lx\n", (unsigned long) start_info.console.domU.mfn);
 }
 
 void get_xenbus(void)
@@ -71,7 +71,7 @@ void get_xenbus(void)
 /*
  * INITIAL C ENTRY POINT.
  */
-void arch_init(void *dtb_pointer, int physical_offset)
+void arch_init(void *dtb_pointer, uint32_t physical_offset)
 {
     struct xen_add_to_physmap xatp;
     int r;
@@ -82,7 +82,7 @@ void arch_init(void *dtb_pointer, int physical_offset)
 
     xprintk("Virtual -> physical offset = %x\n", physical_address_offset);
 
-    xprintk("Checking DTB at %x...\n", dtb_pointer);
+    xprintk("Checking DTB at %p...\n", dtb_pointer);
 
     if ((r = fdt_check_header(dtb_pointer))) {
         xprintk("Invalid DTB from Xen: %s\n", fdt_strerror(r));

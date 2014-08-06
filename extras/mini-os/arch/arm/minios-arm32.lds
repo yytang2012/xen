@@ -2,6 +2,10 @@ OUTPUT_ARCH(arm)
 ENTRY(_start)
 SECTIONS
 {
+  /* Note: we currently assume that Xen will load the kernel image
+   * at start-of-RAM + 0x8000. We use this initial 32 KB for the stack
+   * and translation tables.
+   */
   _boot_stack 	 = 0x400000;	/* 16 KB boot stack */
   _boot_stack_end = 0x404000;
   _page_dir      = 0x404000;	/* 16 KB translation table */

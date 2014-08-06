@@ -51,7 +51,7 @@ flags-$(CONFIG_XENBUS) += -DCONFIG_XENBUS
 DEF_CFLAGS += $(flags-y)
 
 # Symlinks and headers that must be created before building the C files
-GENERATED_HEADERS := $(ARCH_LINKS) include/mini-os include/xen $(TARGET_ARCH_DIR)/include/mini-os
+GENERATED_HEADERS := $(ARCH_LINKS) include/mini-os include/xen $(TARGET_ARCH_DIR)/include/mini-os include/fdt.h include/libfdt.h
 
 EXTRA_DEPS += $(GENERATED_HEADERS)
 
@@ -80,21 +80,17 @@ EXTRA_OBJS =
 TARGET := mini-os
 
 # Subdirectories common to mini-os
-SUBDIRS := lib xenbus console
+SUBDIRS := lib xenbus console libfdt
 
+FDT_SRC :=
 ifeq ($(XEN_TARGET_ARCH),arm32)
 # Need libgcc.a for division helpers
 LDLIBS += `$(CC) -print-libgcc-file-name`
 
 # Device tree support
-SUBDIRS += lib/fdt
-src-y += lib/fdt/fdt.c
-src-y += lib/fdt/fdt_empty_tree.c
-src-y += lib/fdt/fdt_ro.c
-src-y += lib/fdt/fdt_rw.c
-src-y += lib/fdt/fdt_strerror.c
-src-y += lib/fdt/fdt_sw.c
-src-y += lib/fdt/fdt_wip.c
+FDT_SRC := libfdt/fdt.c libfdt/fdt_ro.c libfdt/fdt_strerror.c
+
+src-y += ${FDT_SRC}
 endif
 
 src-$(CONFIG_BLKFRONT) += blkfront.c
@@ -147,6 +143,21 @@ ifneq ($(ARCH_LINKS),)
 $(ARCH_LINKS):
 	$(arch_links)
 endif
+
+include/fdt.h:
+	cp $(XEN_ROOT)/xen/include/xen/libfdt/fdt.h $@
+
+include/libfdt.h:
+	sed 's!xen/libfdt/!!' $(XEN_ROOT)/xen/include/xen/libfdt/libfdt.h > $@
+
+libfdt:
+	mkdir $@
+
+libfdt/libfdt_internal.h: libfdt
+	cp $(XEN_ROOT)/xen/common/libfdt/libfdt_internal.h $@
+
+libfdt/%.c: libfdt libfdt/libfdt_internal.h
+	cp $(XEN_ROOT)/xen/common/libfdt/$*.c $@
 
 include/list.h: $(XEN_ROOT)/tools/include/xen-external/bsd-sys-queue-h-seddery $(XEN_ROOT)/tools/include/xen-external/bsd-sys-queue.h
 	perl $^ --prefix=minios  >$@.new
@@ -245,7 +256,6 @@ install: libminios.a libminios-xen.pc
 	[ -L $(REALDESTDIR)$(INCLUDEDIR)/minios-xen/mini-os ] || ln -s . $(REALDESTDIR)$(INCLUDEDIR)/minios-xen/mini-os
 	$(INSTALL_DATA) $(foreach dir,$(EXTRA_INC),$(wildcard $(MINI-OS_ROOT)/$(dir)/*.h)) $(REALDESTDIR)$(INCLUDEDIR)/minios-xen/
 	$(INSTALL_DATA) libminios-xen.pc $(REALDESTDIR)$(LIBDIR)/pkgconfig
-	$(INSTALL_DATA) libminios-xen.pc $(REALDESTDIR)$(LIBDIR)/pkgconfig/libminios.pc	# Deprecated
 
 .PHONY: clean arch_clean
 
@@ -257,6 +267,7 @@ clean:	arch_clean
 		rm -f $$dir/*.o; \
 	done
 	rm -f include/list.h
+	rm -f ${FDT_SRC} libfdt/libfdt_internal.h
 	rm -f $(OBJ_DIR)/*.o *~ $(OBJ_DIR)/core $(OBJ_DIR)/$(TARGET).elf $(OBJ_DIR)/$(TARGET).raw $(OBJ_DIR)/$(TARGET) $(OBJ_DIR)/$(TARGET).gz
 	find . $(OBJ_DIR) -type l | xargs rm -f
 	$(RM) $(OBJ_DIR)/lwip.a $(LWO)

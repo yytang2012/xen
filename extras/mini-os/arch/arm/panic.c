@@ -71,7 +71,7 @@ void dump_registers(int *saved_registers) {
     else
         fault_name = "unknown fault type!";
 
-    printk("Fault handler at %x called (%s)\n", fault_handler, fault_name);
+    printk("Fault handler at %p called (%s)\n", fault_handler, fault_name);
 
     for (i = 0; i < 16; i++) {
         printk("r%d = %x\n", i, saved_registers[i]);
@@ -81,7 +81,7 @@ void dump_registers(int *saved_registers) {
     printk("Stack dump (innermost last)\n");
     sp = (int *) saved_registers[13];
 
-    if (sp >= _boot_stack && sp <= _boot_stack_end)
+    if (sp <= _boot_stack_end)
         stack_top = _boot_stack_end;                    /* The boot stack */
     else if (sp >= irqstack && sp <= irqstack_end)
         stack_top = irqstack_end;                       /* The IRQ stack */

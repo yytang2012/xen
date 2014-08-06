@@ -5,7 +5,9 @@
 #include <libfdt.h>
 #include <lib.h>
 
-int physical_address_offset;
+void arm_map_extra_stack_section(int);
+
+uint32_t physical_address_offset;
 
 unsigned long allocate_ondemand(unsigned long n, unsigned long alignment)
 {
@@ -48,20 +50,30 @@ void arch_init_mm(unsigned long *start_pfn_p, unsigned long *max_pfn_p)
 
     unsigned int end = (unsigned int) &_end;
     paddr_t mem_base = fdt64_to_cpu(regs[0]);
-    unsigned int mem_size = fdt64_to_cpu(regs[1]);
-    printk("Found memory at %p (len 0x%x)\n", mem_base, mem_size);
+    uint64_t mem_size = fdt64_to_cpu(regs[1]);
+    printk("Found memory at 0x%llx (len 0x%llx)\n",
+            (unsigned long long) mem_base, (unsigned long long) mem_size);
 
     BUG_ON(to_virt(mem_base) > (void *) &_text);          /* Our image isn't in our RAM! */
     *start_pfn_p = PFN_UP(to_phys(end));
-    int heap_len = mem_size - (PFN_PHYS(*start_pfn_p) - mem_base);
-    *max_pfn_p = *start_pfn_p + PFN_DOWN(heap_len);
+    uint64_t heap_len = mem_size - (PFN_PHYS(*start_pfn_p) - mem_base);
 
-    printk("Using pages %d to %d as free space for heap.\n", *start_pfn_p, *max_pfn_p);
+    /* Hack: Use the last 1 MB as extra stack space */
+    int ram_top_pfn = *start_pfn_p + PFN_DOWN(heap_len);
+    int heap_top_pfn = (ram_top_pfn & ~0xff) - 0x100;
+    paddr_t heap_top = ((uint64_t) heap_top_pfn) << L1_PAGETABLE_SHIFT;
+
+    printk("Mapping 1 MB section at %llx as extra stack space.\n", (unsigned long long) heap_top);
+    arm_map_extra_stack_section(heap_top);
+
+    *max_pfn_p = heap_top_pfn;
+
+    printk("Using pages %lu to %lu as free space for heap.\n", *start_pfn_p, *max_pfn_p);
 
     /* The device tree is probably in memory that we're about to hand over to the page
      * allocator, so move it to the end and reserve that space.
      */
-    int fdt_size = fdt_totalsize(device_tree);
+    uint32_t fdt_size = fdt_totalsize(device_tree);
     void *new_device_tree = to_virt(((*max_pfn_p << PAGE_SHIFT) - fdt_size) & PAGE_MASK);
     if (new_device_tree != device_tree) {
         memmove(new_device_tree, device_tree, fdt_size);
@@ -98,7 +110,7 @@ static paddr_t get_gnttab_base(void)
 
     gnttab_base = fdt64_to_cpu(regs[0]);
 
-    printk("FDT suggests grant table base %lx\n", gnttab_base);
+    printk("FDT suggests grant table base %llx\n", (unsigned long long) gnttab_base);
 
     return gnttab_base;
 }

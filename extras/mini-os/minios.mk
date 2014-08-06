@@ -6,7 +6,7 @@ debug = y
 
 # Define some default flags.
 # NB. '-Wcast-qual' is nasty, so I omitted it.
-DEF_CFLAGS += -fno-builtin -Wall -Werror -Wredundant-decls -Wno-format -Wno-redundant-decls
+DEF_CFLAGS += -fno-builtin -Wall -Werror -Wredundant-decls -Wno-format -Wno-redundant-decls -Wformat
 DEF_CFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 DEF_CFLAGS += $(call cc-option,$(CC),-fgnu89-inline)
 DEF_CFLAGS += -Wstrict-prototypes -Wnested-externs -Wpointer-arith -Winline
@@ -23,7 +23,7 @@ DEF_CFLAGS += -g
 #DEF_CFLAGS += -DGNT_DEBUG
 #DEF_CFLAGS += -DGNTMAP_DEBUG
 else
-DEF_CFLAGS += -O3
+DEF_CFLAGS += -O3 -fno-tree-loop-distribute-patterns
 endif
 
 # Make the headers define our internal stuff

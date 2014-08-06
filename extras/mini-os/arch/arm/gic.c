@@ -103,8 +103,12 @@ static void gic_enable_interrupt(struct gic *gic, int irq_number,
 
     // set level/edge triggered
     cfg_reg = (void *)gicd(gic, GICD_ICFGR);
-    level_sensitive ? clear_bit_non_atomic((irq_number * 2) + 1, cfg_reg) : set_bit_non_atomic((irq_number * 2) + 1, cfg_reg);
-    if(ppi)
+    if (level_sensitive) {
+        clear_bit_non_atomic((irq_number * 2) + 1, cfg_reg);
+    } else {
+        set_bit_non_atomic((irq_number * 2) + 1, cfg_reg);
+    }
+    if (ppi)
         clear_bit_non_atomic((irq_number * 2), cfg_reg);
 
     wmb();
@@ -148,7 +152,6 @@ static void gic_eoir(struct gic *gic, uint32_t irq) {
 
 //FIXME Get event_irq from dt
 #define EVENTS_IRQ 31
-#define VIRTUALTIMER_IRQ 27
 
 static void gic_handler(void) {
     unsigned int irq = gic_readiar(&gic);
@@ -157,9 +160,6 @@ static void gic_handler(void) {
     switch(irq) {
     case EVENTS_IRQ:
         do_hypervisor_callback(NULL);
-        break;
-    case VIRTUALTIMER_IRQ:
-        timer_handler(0, NULL, 0);
         break;
     default:
         DEBUG("Unhandled irq\n");
@@ -228,5 +228,4 @@ void gic_init(void) {
     gic_enable_interrupts(&gic);
 
     gic_enable_interrupt(&gic, EVENTS_IRQ /* interrupt number */, 0x1 /*cpu_set*/, 1 /*level_sensitive*/, 0 /* ppi */);
-    gic_enable_interrupt(&gic, VIRTUALTIMER_IRQ /* interrupt number */, 0x1 /*cpu_set*/, 1 /*level_sensitive*/, 1 /* ppi */);
 }

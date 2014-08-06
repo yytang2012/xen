@@ -54,6 +54,15 @@
 #include <xen/event_channel.h>
 #include "gntmap.h"
 
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#define BUILD_BUG_ON(cond) ({ _Static_assert(!(cond), "!(" #cond ")"); })
+#define BUILD_BUG_ON_ZERO(cond) \
+    sizeof(struct { _Static_assert(!(cond), "!(" #cond ")"); })
+#else
+#define BUILD_BUG_ON_ZERO(cond) sizeof(struct { int:-!!(cond); })
+#define BUILD_BUG_ON(cond) ((void)BUILD_BUG_ON_ZERO(cond))
+#endif
+
 #ifdef HAVE_LIBC
 #include <sys/queue.h>
 #include <stdio.h>
@@ -86,7 +95,7 @@ char	*strncpy(char * __restrict, const char * __restrict, size_t);
 
 char	*strstr(const char *, const char *);
 
-void *memmove(void * dest,const void *src,size_t count);
+void *memmove(void *, const void *, size_t);
 void *memset(void *, int, size_t);
 
 char *strchr(const char *p, int ch);

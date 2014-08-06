@@ -46,7 +46,10 @@ reset:
 	@ Tell the system where our page table is located.
 	@ This is the 16 KB top-level translation table, in which
 	@ each word maps one 1MB virtual section to a physical section.
-	mcr	p15, 0, r1, c2, c0, 0	@ set ttbr0 = r1
+	@ Note: We leave TTBCR as 0, meaning that only TTBR0 is used and
+	@ we use the short-descriptor format (32-bit physical addresses).
+	orr	r0, r1, #0b0001011	@ Sharable, Inner/Outer Write-Back Write-Allocate Cacheable
+	mcr	p15, 0, r0, c2, c0, 0	@ set TTBR0
 
 	@ Set access permission for domains.
 	@ Domains are deprecated, but we have to configure them anyway.
@@ -75,18 +78,17 @@ reset:
 	str	r3, [r1, r0, lsr#18]	@ map current section to this code too
 
 	@ Invalidate TLB
+	dsb				@ Caching is off, but must still prevent reordering
 	mcr	p15, 0, r1, c8, c7, 0	@ TLBIALL
 
 	@ Enable MMU / SCTLR
-	@ We leave caches off for now because we're going to be changing the
-	@ TLB a lot and this avoids having to flush the caches each time.
 	mrc	p15, 0, r1, c1, c0, 0	@ SCTLR
-	orr	r1, r1, #0x1		@ Enable MMU
+	orr	r1, r1, #3 << 11	@ enable icache, branch prediction
+	orr	r1, r1, #4 + 1		@ enable dcache, MMU
 	mcr	p15, 0, r1, c1, c0, 0	@ SCTLR
 	isb
 
-	adr	r1, stage2		@ Physical address of stage2
-	sub	r1, r1, r9		@ Virtual address of stage2
+	ldr	r1, =stage2		@ Virtual address of stage2
 	bx	r1
 
 @ Called once the MMU is enabled. The boot code and the page table are mapped,
@@ -118,15 +120,9 @@ stage2:
 	bne	1b
 
 	@ Invalidate TLB
+	dsb
 	mcr	p15, 0, r1, c8, c7, 0	@ TLBIALL
 	isb
-
-	@ At this point, everything is mapped to its final location.
-	@ It's now safe to turn on caching.
-	ldr	r0, =(3 << 11) + 4	@ icache, branch prediction, dcache
-	mrc	p15, 0, r1, c1, c0, 0	@ SCTLR
-	orr	r1, r1, r0
-	mcr	p15, 0, r1, c1, c0, 0	@ SCTLR
 
 	@ Set VBAR -> exception_vector_table
 	@ SCTLR.V = 0
@@ -151,6 +147,31 @@ stage2:
 	mov	r1, r9			@ r1 = physical_address_offset
 
 	b	arch_init
+
+.globl arm_map_extra_stack_section
+@ At boot, we only have a 16 KB stack.
+@ Once we've found the rest of the RAM, we map the top 1 MB just below the boot stack.
+@ => r0 = physical address of 1 MB section of RAM to use (must be section aligned)
+arm_map_extra_stack_section:
+	@ Template (flags) for a 1 MB page-table entry.
+	@ TEX[2:0] C B = 001 1 1 (outer and inner write-back, write-allocate)
+	ldr	r1, =(0x2 +  		/* Section entry */ \
+		      0xc +  		/* C B */ \
+		      (3 << 10) + 	/* Read/write */ \
+		      (1 << 12) +	/* TEX */ \
+		      (1 << 16) +	/* Sharable */ \
+		      (1<<19))		/* Non-secure */
+	orr	r0, r0, r1		@ r1 = entry mapping to new memory
+	ldr	r2, =_page_dir		@ r2 -> translation table
+	ldr	r1, =(_boot_stack - 1024 * 1024)
+	str	r0, [r2, r1, lsr#18]
+
+	@ Invalidate TLB
+	dsb
+	mcr	p15, 0, r1, c8, c7, 0	@ TLBIALL
+	isb
+
+	bx	lr
 
 .pushsection .bss
 @ Note: calling arch_init zeroes out this region.
@@ -247,13 +268,17 @@ exception_vector_table:
 	b	irq_handler @ IRQ
 	.word 0xe7f000f0    @ abort on FIQ
 
+@ Call fault_undefined_instruction in "Undefined mode"
+bug:
+	.word	0xe7f000f0    	@ und/udf - a "Permanently Undefined" instruction
+
 irq_handler:
 	ldr	sp, =irqstack_end
 	push	{r0 - r12, r14}
 
 	ldr	r0, IRQ_handler
 	cmp	r0, #0
-	.word	0x07f000f0    	@ undeq - panic if no handler
+	beq	bug
 	blx	r0		@ call handler
 
 	@ Return from IRQ
@@ -271,13 +296,13 @@ IRQ_handler:
 @    r1 = &next->sp
 @ <= returns to next thread's saved return address
 __arch_switch_threads:
+	push	{r4-r11}	@ Store callee-saved registers to old thread's stack
 	stmia	r0, {sp, lr}	@ Store current sp and ip to prev's struct thread
-	str	fp, [sp, #-4]	@ Store fp on the old stack
 
 	ldmia	r1, {sp, lr}	@ Load new sp, ip from next's struct thread
-	ldr	fp, [sp, #-4]	@ Restore fp from the stack
+	pop	{r4-r11}	@ Load callee-saved registers from new thread's stack
 
-	mov	pc, lr
+	bx	lr
 
 @ This is called if you try to divide by zero. For now, we make a supervisor call,
 @ which will make us halt.
