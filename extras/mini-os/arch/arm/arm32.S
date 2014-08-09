@@ -317,3 +317,44 @@ arm_start_thread:
 	@ r1 -> thread's main function
 	ldr	lr, =exit_thread
 	bx	r1
+
+@ Called at the start of every function when compiled with profiling on.
+@ => [sp] -> caller of profiled fn
+@    r14  -> callee (profiled fn)
+@ <= r12 and CPSR clobbered, others must be preserved
+@    r14 -> caller (popped from stack)
+.code 16
+.globl __gnu_mcount_nc
+__gnu_mcount_nc:
+        mov	r12, lr		@ r12 -> callee
+
+	push	{r0-r3}
+	ldr	r2, =trace_buffer
+	ldr	r0, [r2]
+	ldr	r1, =trace_buffer_end
+	ldr	r1, [r1]
+
+        ldr	r3, [sp, #16]	@ r3 -> caller
+
+	@ Check for buffer full or tracing disabled
+	cmp	r0, r1
+	mov	r1, lr		@ Copy to lo register for thumb
+	mov	lr, r3
+	bhs	1f
+
+	@ Write new entry to trace buffer
+	str	r3, [r0, #8]	@ Caller
+	str	r1, [r0, #12]	@ Callee
+
+	mrrc	p15, 1, r1, r3, c14
+	str	r1, [r0, #0]	@ Time low
+	str	r3, [r0, #4]	@ Time high
+
+	add	r0, r0, #16
+	str	r0, [r2]
+1:
+	pop	{r0-r3}
+	add	sp, sp, #4
+
+        bx	r12
+.code 32
