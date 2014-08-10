@@ -146,7 +146,13 @@ stage2:
 	sub	r0, r2, r9		@ r0 -> device tree (virtual address)
 	mov	r1, r9			@ r1 = physical_address_offset
 
-	blx	arch_init
+	@ Don't start tracing yet (.bss isn't zeroed yet)
+	mov	r2, #0
+	ldr	r3, =trace_buffer_end
+	str	r2, [r3]
+
+	ldr	r14, =arch_init
+	bx	r14
 
 .globl arm_map_extra_stack_section
 .type arm_map_extra_stack_section, %function
@@ -320,3 +326,40 @@ arm_start_thread:
 	@ r1 -> thread's main function
 	ldr	lr, =exit_thread
 	bx	r1
+
+@ Called at the start of every function when compiled with profiling on.
+@ => [sp] -> caller of profiled fn
+@    r14  -> callee (profiled fn)
+@ <= r12 and CPSR clobbered, others must be preserved
+@    r14 -> caller (popped from stack)
+.globl __gnu_mcount_nc
+.type __gnu_mcount_nc, %function
+__gnu_mcount_nc:
+        mov	r12, lr		@ r12 -> callee
+
+	mrs	lr, CPSR
+	and	lr, lr, #0x1f
+	cmp	lr, #0x13	@ SVC mode?
+	pop	{lr}		@ lr -> caller
+	bne	2f		@ Skip tracing if we're not in SVC mode
+
+	push	{r0-r3}
+	ldr	r3, =trace_buffer_next	@ r3 = &trace_buffer_next
+	ldr	r0, [r3]		@ r0 -> next entry
+	ldr	r1, =trace_buffer_end
+	ldr	r1, [r1]
+
+	@ Check for buffer full or tracing disabled
+	cmp	r0, r1
+	bhs	1f
+
+	@ Read time
+	mrrc	p15, 1, r1, r2, c14	@ r1, r2 = time
+
+	@ Write new entry to trace buffer
+	stmia	r0!,{r1, r2, r12, lr}
+	str	r0, [r3]		@ Update trace_buffer_next pointer
+1:
+	pop	{r0-r3}
+2:
+        bx	r12
