@@ -146,9 +146,19 @@ stage2:
 	sub	r0, r2, r9		@ r0 -> device tree (virtual address)
 	mov	r1, r9			@ r1 = physical_address_offset
 
-	b	arch_init
+	@ Don't start tracing yet (.bss isn't zeroed yet)
+	mov	r2, #0
+	ldr	r3, =trace_buffer_end
+	str	r2, [r3]
+
+	ldr	r3, =trace_buffer	@ XXX
+	str	r2, [r3]
+
+	ldr	r14, =arch_init
+	bx	r14
 
 .globl arm_map_extra_stack_section
+.type arm_map_extra_stack_section, %function
 @ At boot, we only have a 16 KB stack.
 @ Once we've found the rest of the RAM, we map the top 1 MB just below the boot stack.
 @ => r0 = physical address of 1 MB section of RAM to use (must be section aligned)
@@ -229,8 +239,8 @@ fault:
 	@ Call C code to format the register dump.
 	@ Clobbers the stack, but we're not going to return anyway.
 	ldr	sp, =_boot_stack_end
-	bl	dump_registers
-	b	do_exit
+	blx	dump_registers
+	blx	do_exit
 
 @ We want to store a unique value to identify this handler, without corrupting
 @ any of the registers. So, we store r15 (which will point just after the branch).
@@ -292,6 +302,7 @@ IRQ_handler:
 
 
 .globl __arch_switch_threads
+.type __arch_switch_threads, %function
 @ => r0 = &prev->sp
 @    r1 = &next->sp
 @ <= returns to next thread's saved return address
@@ -311,6 +322,7 @@ raise:
 	svc	0
 
 .globl arm_start_thread
+.type arm_start_thread, %function
 arm_start_thread:
 	pop	{r0, r1}
 	@ r0 = user data
@@ -325,6 +337,7 @@ arm_start_thread:
 @    r14 -> caller (popped from stack)
 .code 16
 .globl __gnu_mcount_nc
+.type arm_start_thread, %function
 __gnu_mcount_nc:
         mov	r12, lr		@ r12 -> callee
 
