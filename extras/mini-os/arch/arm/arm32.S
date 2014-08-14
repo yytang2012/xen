@@ -336,7 +336,12 @@ arm_start_thread:
 .type __gnu_mcount_nc, %function
 __gnu_mcount_nc:
         mov	r12, lr		@ r12 -> callee
+
+	mrs	lr, CPSR
+	and	lr, lr, #0x1f
+	cmp	lr, #0x13	@ SVC mode?
 	pop	{lr}		@ lr -> caller
+	bne	2f		@ Skip tracing if we're not in SVC mode
 
 	push	{r0-r3}
 	ldr	r3, =trace_buffer	@ r3 = &trace_buffer
@@ -356,5 +361,5 @@ __gnu_mcount_nc:
 	str	r0, [r3]		@ Update trace_buffer pointer
 1:
 	pop	{r0-r3}
-
+2:
         bx	r12
