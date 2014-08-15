@@ -51,9 +51,9 @@ static inline int irqs_disabled(void) {
 }
 
 /* We probably only need "dmb" here, but we'll start by being paranoid. */
-#define mb() __asm__("dsb":::"memory");
-#define rmb() __asm__("dsb":::"memory");
-#define wmb() __asm__("dsb":::"memory");
+#define mb() __asm__("dmb":::"memory");
+#define rmb() __asm__("dmb":::"memory");
+#define wmb() __asm__("dmb":::"memory");
 
 /************************** arm *******************************/
 #ifdef __INSIDE_MINIOS__
