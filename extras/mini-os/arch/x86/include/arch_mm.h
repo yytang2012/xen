@@ -230,4 +230,13 @@ static __inline__ paddr_t machine_to_phys(maddr_t machine)
 
 pgentry_t *need_pgt(unsigned long addr);
 
+static __inline__ int get_order(unsigned long size)
+{
+    int order;
+    size = (size-1) >> PAGE_SHIFT;
+    for ( order = 0; size; order++ )
+        size >>= 1;
+    return order;
+}
+
 #endif /* _ARCH_MM_H_ */
