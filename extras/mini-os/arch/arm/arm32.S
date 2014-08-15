@@ -154,6 +154,13 @@ stage2:
 	ldr	r14, =arch_init
 	bx	r14
 
+.globl arm_bench
+.type arm_bench, %function
+arm_bench:
+	subs	r0, r0, #1
+	bne	arm_bench
+	bx	lr
+
 .globl arm_map_extra_stack_section
 .type arm_map_extra_stack_section, %function
 @ At boot, we only have a 16 KB stack.

@@ -127,13 +127,35 @@ void block_domain(s_time_t until)
     }
 }
 
+void arm_bench(int);
+
 void init_time(void)
 {
+    int i;
+
     printk("Initialising timer interface\n");
 
     __asm__ __volatile__("mrc p15, 0, %0, c14, c0, 0":"=r"(counter_freq));
     cntvct_at_init = read_virtual_count();
     printk("Virtual Count register is %llx, freq = %d Hz\n", cntvct_at_init, counter_freq);
+
+    for (i = 0; i < 10; i++) {
+        int         count = 1000000;
+        int cycles;
+        uint64_t    t0, t1;
+        float         tpl;
+        float       dur;
+
+        t0 = read_virtual_count();
+        arm_bench(count);
+        t1 = read_virtual_count() - t0;
+        tpl = ((float) t1) / count;
+        cycles = count * 2;
+        dur = ((float) t1) / counter_freq;
+        printk("Counted to %d in %lld ticks, %d ticks per loop, %d MHz\n",
+                count, t1, (int) tpl,
+                (int) (cycles / dur / 1000000));
+    }
 }
 
 void fini_time(void)
