@@ -49,15 +49,6 @@ unsigned long alloc_pages(int order);
 void free_pages(void *pointer, int order);
 #define free_page(p)    free_pages(p, 0)
 
-static __inline__ int get_order(unsigned long size)
-{
-    int order;
-    size = (size-1) >> PAGE_SHIFT;
-    for ( order = 0; size; order++ )
-        size >>= 1;
-    return order;
-}
-
 void arch_init_demand_mapping_area(unsigned long max_pfn);
 void arch_init_mm(unsigned long* start_pfn_p, unsigned long* max_pfn_p);
 void arch_init_p2m(unsigned long max_pfn_p);

@@ -35,4 +35,20 @@ extern uint32_t physical_address_offset;	/* Add this to a virtual address to get
 // FIXME
 #define map_frames(f, n) (NULL)
 
+static __inline__ int get_order(unsigned long size)
+{
+    int clz;
+
+    __asm__ (
+        "clz %[clz], %[last_page]\n":
+        /* Outputs: */
+        [clz] "=r"(clz):
+        /* Inputs: */
+        [last_page] "r"((size-1) >> PAGE_SHIFT):
+        /* Clobbers: */
+        "r0");
+
+    return 32 - clz;
+}
+
 #endif
