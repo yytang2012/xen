@@ -552,9 +552,37 @@ static void shutdown_thread(void *p)
 }
 #endif
 
+static void console_tester(void *p)
+{
+    uint64_t t0;
+    uint64_t t1;
+    int     iterations = 1000;
+    int     bytes;
+    char msg[] = "Hello\n";
+    int i;
+
+    for (i = 0; i < iterations; i++) {
+        console_print(NULL, msg, sizeof(msg));
+    }
+
+    t0 = monotonic_clock();
+    for (i = 0; i < iterations; i++) {
+        console_print(NULL, msg, sizeof(msg));
+    }
+    t1 = monotonic_clock();
+
+    bytes = sizeof(msg) * iterations;
+    printk("Wrote %d bytes in %lld ns; %d bytes/s\n",
+            bytes, (t1 - t0),
+            (int) (1000000000.0 * bytes / (t1 - t0))
+            );
+}
+
 int app_main(start_info_t *si)
 {
     printk("Test main: start_info=%p\n", si);
+    create_thread("console_tester", console_tester, si);
+    if (0) {
 #ifdef CONFIG_XENBUS
     create_thread("xenbus_tester", xenbus_tester, si);
 #endif
@@ -575,5 +603,6 @@ int app_main(start_info_t *si)
 #ifdef CONFIG_XENBUS
     create_thread("shutdown", shutdown_thread, si);
 #endif
+    }
     return 0;
 }
