@@ -556,7 +556,7 @@ static void console_tester(void *p)
 {
     uint64_t t0;
     uint64_t t1;
-    int     iterations = 1000;
+    int     iterations = 100000;
     int     bytes;
     char msg[] = "Hello\n";
     int i;
@@ -571,7 +571,7 @@ static void console_tester(void *p)
     }
     t1 = monotonic_clock();
 
-    bytes = sizeof(msg) * iterations;
+    bytes = (sizeof(msg) - 1) * iterations;
     printk("Wrote %d bytes in %lld ns; %d bytes/s\n",
             bytes, (t1 - t0),
             (int) (1000000000.0 * bytes / (t1 - t0))

@@ -63,8 +63,15 @@ int xencons_ring_send(struct consfront_dev *dev, const char *data, unsigned len)
 {
     int sent;
 
-    sent = xencons_ring_send_no_notify(dev, data, len);
-    notify_daemon(dev);
+    while (1) {
+        sent = xencons_ring_send_no_notify(dev, data, len);
+        notify_daemon(dev);
+        if (sent < len) {
+            len -= sent;
+            data += sent;
+        } else
+            break;
+    }
 
     return sent;
 }	
