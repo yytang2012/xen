@@ -41,5 +41,5 @@ void profile_init(struct trace_entry *buffer, size_t size)
 
 size_t profile_get_count(void)
 {
-    return trace_buffer_end - trace_buffer;
+    return (trace_buffer_end - trace_buffer) / sizeof(trace_entry);
 }
