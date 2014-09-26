@@ -2,4 +2,3 @@
 * bind_*
 * add multiple cpu support (?)
 * map_frames
-* make sure that wallclock is functioning properly

@@ -152,6 +152,7 @@ static void gic_eoir(struct gic *gic, uint32_t irq) {
 
 //FIXME Get event_irq from dt
 #define EVENTS_IRQ 31
+#define VIRTUALTIMER_IRQ 27
 
 static void gic_handler(void) {
     unsigned int irq = gic_readiar(&gic);
@@ -160,6 +161,10 @@ static void gic_handler(void) {
     switch(irq) {
     case EVENTS_IRQ:
         do_hypervisor_callback(NULL);
+        break;
+    case VIRTUALTIMER_IRQ:
+        /* We need to get this event to wake us up from block_domain,
+         * but we don't need to do anything special with it. */
         break;
     default:
         DEBUG("Unhandled irq\n");
@@ -228,4 +233,5 @@ void gic_init(void) {
     gic_enable_interrupts(&gic);
 
     gic_enable_interrupt(&gic, EVENTS_IRQ /* interrupt number */, 0x1 /*cpu_set*/, 1 /*level_sensitive*/, 0 /* ppi */);
+    gic_enable_interrupt(&gic, VIRTUALTIMER_IRQ /* interrupt number */, 0x1 /*cpu_set*/, 1 /*level_sensitive*/, 1 /* ppi */);
 }

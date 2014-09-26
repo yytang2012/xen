@@ -5,6 +5,10 @@
 #include <stdint.h>
 #include <lib.h>
 
+typedef uint16_t fdt16_t;
+typedef uint32_t fdt32_t;
+typedef uint64_t fdt64_t;
+
 #define EXTRACT_BYTE(n) ((unsigned long long)((uint8_t *)&x)[n])
 static inline uint16_t fdt16_to_cpu(uint16_t x)
 {
