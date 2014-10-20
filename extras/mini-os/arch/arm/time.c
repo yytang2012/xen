@@ -59,7 +59,7 @@ static struct timespec shadow_ts;
 static inline uint64_t read_virtual_count(void)
 {
     uint32_t c_lo, c_hi;
-    __asm__ __volatile__("isb;mrrc p15, 1, %0, %1, c14":"=r"(c_lo), "=r"(c_hi));
+    __asm__ __volatile__("mrrc p15, 1, %0, %1, c14":"=r"(c_lo), "=r"(c_hi));
     return (((uint64_t) c_hi) << 32) + c_lo;
 }
 
@@ -69,9 +69,7 @@ static inline uint64_t read_virtual_count(void)
  */
 uint64_t monotonic_clock(void)
 {
-    s_time_t time = ticks_to_ns(read_virtual_count() - cntvct_at_init);
-    //printk("monotonic_clock: %llu (%llu)\n", time, NSEC_TO_SEC(time));
-    return time;
+    return ticks_to_ns(read_virtual_count() - cntvct_at_init);
 }
 
 int gettimeofday(struct timeval *tv, void *tz)
@@ -86,27 +84,26 @@ int gettimeofday(struct timeval *tv, void *tz)
     return 0;
 }
 
+/* Set the timer and mask. */
+void write_timer_ctl(uint32_t value) {
+    __asm__ __volatile__(
+            "mcr p15, 0, %0, c14, c3, 1\n"
+            "isb"::"r"(value));
+}
+
 void set_vtimer_compare(uint64_t value) {
-    uint32_t x, y;
-
     DEBUG("New CompareValue : %llx\n", value);
-    x = 0xFFFFFFFFULL & value;
-    y = (value >> 32) & 0xFFFFFFFF;
 
-    __asm__ __volatile__("mcrr p15, 3, %0, %1, c14"
-            ::"r"(x), "r"(y));
+    __asm__ __volatile__("mcrr p15, 3, %0, %H0, c14"
+            ::"r"(value));
 
-    __asm__ __volatile__("mov %0, #0x1\n"
-            "mcr p15, 0, %0, c14, c3, 1\n" /* Enable timer and unmask the output signal */
-            "isb":"=r"(x));
+    /* Enable timer and unmask the output signal */
+    write_timer_ctl(1);
 }
 
 void unset_vtimer_compare(void) {
-    uint32_t x;
-
-    __asm__ __volatile__("mov %0, #0x2\n"
-            "mcr p15, 0, %0, c14, c3, 1\n" /* Disable timer and mask the output signal */
-            "isb":"=r"(x));
+    /* Disable timer and mask the output signal */
+    write_timer_ctl(2);
 }
 
 void block_domain(s_time_t until)
@@ -116,9 +113,7 @@ void block_domain(s_time_t until)
     if (read_virtual_count() < until_count)
     {
         set_vtimer_compare(until_count);
-        //char buf[] = "sleep\n"; (void)HYPERVISOR_console_io(CONSOLEIO_write, strlen(buf), buf);
         __asm__ __volatile__("wfi");
-        //char wake[] = "wake\n"; (void)HYPERVISOR_console_io(CONSOLEIO_write, strlen(wake), wake);
         unset_vtimer_compare();
 
         /* Give the IRQ handler a chance to handle whatever woke us up. */
