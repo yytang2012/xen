@@ -90,9 +90,9 @@ static __inline__ void set_bit_non_atomic(int nr, volatile void *base)
 
 /* Note: not thread safe (but we only support one CPU for now anyway) */
 static void gic_enable_interrupt(struct gic *gic, int irq_number,
-        unsigned char cpu_set, unsigned char level_sensitive, unsigned char ppi)
+        unsigned char cpu_set, unsigned char level_sensitive)
 {
-    void *set_enable_reg;
+    int *set_enable_reg;
     void *cfg_reg;
 
     // set priority
@@ -108,14 +108,12 @@ static void gic_enable_interrupt(struct gic *gic, int irq_number,
     } else {
         set_bit_non_atomic((irq_number * 2) + 1, cfg_reg);
     }
-    if (ppi)
-        clear_bit_non_atomic((irq_number * 2), cfg_reg);
 
     wmb();
 
     // enable forwarding interrupt from distributor to cpu interface
-    set_enable_reg = (void *)gicd(gic, GICD_ISENABLER);
-    set_bit_non_atomic(irq_number, set_enable_reg);
+    set_enable_reg = (int *)gicd(gic, GICD_ISENABLER);
+    set_enable_reg[irq_number >> 5] = 1 << (irq_number & 0x1f);
     wmb();
 }
 
@@ -166,6 +164,9 @@ static void gic_handler(void) {
         /* We need to get this event to wake us up from block_domain,
          * but we don't need to do anything special with it. */
         break;
+    case 1022:
+    case 1023:
+        return;  /* Spurious interrupt */
     default:
         DEBUG("Unhandled irq\n");
         break;
@@ -232,6 +233,6 @@ void gic_init(void) {
      * gets called endlessly with spurious interrupts. */
     gic_enable_interrupts(&gic);
 
-    gic_enable_interrupt(&gic, EVENTS_IRQ /* interrupt number */, 0x1 /*cpu_set*/, 1 /*level_sensitive*/, 0 /* ppi */);
-    gic_enable_interrupt(&gic, VIRTUALTIMER_IRQ /* interrupt number */, 0x1 /*cpu_set*/, 1 /*level_sensitive*/, 1 /* ppi */);
+    gic_enable_interrupt(&gic, EVENTS_IRQ /* interrupt number */, 0x1 /*cpu_set*/, 1 /*level_sensitive*/);
+    gic_enable_interrupt(&gic, VIRTUALTIMER_IRQ /* interrupt number */, 0x1 /*cpu_set*/, 1 /*level_sensitive*/);
 }
