@@ -48,8 +48,10 @@
 #ifndef _LIB_H_
 #define _LIB_H_
 
+#include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <assert.h>
 #include <xen/xen.h>
 #include <xen/event_channel.h>
 #include "gntmap.h"
@@ -70,46 +72,7 @@
 #include <lib-gpl.h>
 #endif
 
-#ifdef HAVE_LIBC
 #include <string.h>
-#else
-/* string and memory manipulation */
-
-/*
- * From:
- *	@(#)libkern.h	8.1 (Berkeley) 6/10/93
- * $FreeBSD$
- */
-int	 memcmp(const void *b1, const void *b2, size_t len);
-
-char	*strcat(char * __restrict, const char * __restrict);
-int	 strcmp(const char *, const char *);
-char	*strcpy(char * __restrict, const char * __restrict);
-
-char	*strdup(const char *__restrict);
-
-size_t	 strlen(const char *);
-
-int	 strncmp(const char *, const char *, size_t);
-char	*strncpy(char * __restrict, const char * __restrict, size_t);
-
-char	*strstr(const char *, const char *);
-
-void *memmove(void *, const void *, size_t);
-void *memset(void *, int, size_t);
-
-char *strchr(const char *p, int ch);
-char *strrchr(const char *p, int ch);
-
-/* From:
- *	@(#)systm.h	8.7 (Berkeley) 3/29/95
- * $FreeBSD$
- */
-void *memcpy(void *to, const void *from, size_t len);
-void *memchr(const void *s, int c, size_t n);
-
-size_t strnlen(const char *, size_t);
-#endif
 
 #include <mini-os/console.h>
 
@@ -121,16 +84,7 @@ int rand(void);
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
-#define ASSERT(x)                                              \
-do {                                                           \
-	if (!(x)) {                                                \
-		printk("ASSERTION FAILED: %s at %s:%d.\n",             \
-			   # x ,                                           \
-			   __FILE__,                                       \
-			   __LINE__);                                      \
-        BUG();                                                 \
-	}                                                          \
-} while(0)
+#define ASSERT(x) assert(x)
 
 #define BUG_ON(x) ASSERT(!(x))
 
