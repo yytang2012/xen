@@ -68,8 +68,10 @@ reset:
 		      (1<<19))		/* Non-secure */
 	@ r8 = template page table entry
 
-	@ Add an entry for the current physical section, at the old and new
-	@ addresses. It's OK if they're the same.
+	@ Add two entries for the current physical section, at the old and new
+	@ addresses.
+	@ It's OK if they're the same. It's even OK if the new section overlaps
+	@ the physical address of the page table, since the MMU is still turned off.
 	mov	r0, pc, lsr#20
 	mov	r0, r0, lsl#20		@ r0 = physical address of this code's section start
 	orr	r3, r0, r8		@ r3 = table entry for this section
@@ -77,14 +79,26 @@ reset:
 	str	r3, [r1, r4, lsr#18] 	@ map desired virtual section to this code
 	str	r3, [r1, r0, lsr#18]	@ map current section to this code too
 
+	@ Map the section containing the page table to its desired address, if possible.
+	@ We need to make sure the desired virtual section doesn't match the old address of the
+	@ code, since that needs to remain valid briefly after the MMU is turned on.
+	mov	r3, r1, lsr#20		@ r3 = physical section number containing page table
+	rsb	r4, r9, r3, lsl#20	@ r4 = desired virtual address of page table's section
+	orr	r3, r8, r3, lsl#20	@ r3 = table entry for page table
+	cmp	r4, r0			@ is r4 where we're executing from?
+	movne	r5, r4			@ use it if not
+	addeq	r5, r4, #1<<20		@ else use next section instead
+	str	r3, [r1, r5, lsr#18]	@ add section entry for page table itself
+	@ r5 = temporary virtual address of page table section
+
 	@ Invalidate TLB
-	dsb				@ Caching is off, but must still prevent reordering
 	mcr	p15, 0, r1, c8, c7, 0	@ TLBIALL
 
 	@ Enable MMU / SCTLR
+	@ We leave caches off for now because we're going to be changing the
+	@ TLB a lot and this avoids having to flush the caches each time.
 	mrc	p15, 0, r1, c1, c0, 0	@ SCTLR
-	orr	r1, r1, #3 << 11	@ enable icache, branch prediction
-	orr	r1, r1, #4 + 1		@ enable dcache, MMU
+	orr	r1, r1, #0x1		@ Enable MMU
 	mcr	p15, 0, r1, c1, c0, 0	@ SCTLR
 	isb
 
@@ -95,11 +109,20 @@ reset:
 @ but nothing else is yet.
 @
 @ => r2 -> dtb (physical)
-@    r7 = virtual address of page table
+@    r3 = page table entry for page table itself
+@    r4 = desired virtual address of page table's section
+@    r5 = temporary virtual address of page table's section
+@    r7 = desired virtual address of page table
 @    r8 = section entry template (flags)
 @    r9 = desired physical - virtual offset
 @    pc -> somewhere in newly-mapped virtual code section
 stage2:
+	@ Remap page table to its final location, now it can't clash with our
+	@ execution address.
+	sub	r5, r5,	r4		@ r5 = difference between desired and actual
+	add	r5, r5, r7		@ r5 = temporary virtual address of page_dir
+	str	r3, [r5, r4, lsr#18]	@ map page table section at desired address
+
 	@ Invalidate TLB
 	mcr	p15, 0, r1, c8, c7, 0	@ TLBIALL
 	isb
@@ -120,25 +143,19 @@ stage2:
 	bne	1b
 
 	@ Invalidate TLB
-	dsb
 	mcr	p15, 0, r1, c8, c7, 0	@ TLBIALL
 	isb
 
+	@ At this point, everything is mapped to its final location.
+	@ It's now safe to turn on caching.
+	ldr	r0, =(3 << 11) + 4	@ icache, branch prediction, dcache
+	mrc	p15, 0, r1, c1, c0, 0	@ SCTLR
+	orr	r1, r1, r0
+	mcr	p15, 0, r1, c1, c0, 0	@ SCTLR
 	@ Set VBAR -> exception_vector_table
 	@ SCTLR.V = 0
 	adr	r0, exception_vector_table
 	mcr	p15, 0, r0, c12, c0, 0
-
-	@ Enable hardware floating point:
-	@ 1. Access to CP10 and CP11 must be enabled in the Coprocessor Access
-	@    Control Register (CP15.CACR):
-	mrc	p15, 0, r1, c1, c0, 2		@ CACR
-	orr	r1, r1, #(3 << 20) + (3 << 22)	@ full access for CP10 & CP11
-	mcr	p15, 0, r1, c1, c0, 2
-	@ 2. The EN bit in the FPEXC register must be set:
-	vmrs	r0, FPEXC
-	orr	r0, r0, #1<<30		@ EN (enable)
-	vmsr	FPEXC, r0
 
 	@ Initialise 16 KB stack
 	ldr	sp, =_boot_stack_end
